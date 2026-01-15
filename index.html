@@ -6,42 +6,58 @@
     <title>Doktor G Spot</title>
     <style>
         body {
-            /* Sætter en mørk baggrund og hvid tekst */
             background-color: #222;
             color: #fff;
-            font-family: 'Courier New', Courier, monospace; /* Kode-agtig skrifttype */
-            
-            /* Centrerer alt indhold både vandret og lodret */
+            font-family: 'Courier New', Courier, monospace;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh; /* Sikrer at den fylder hele skærmen */
             margin: 0;
         }
 
         .container {
-            text-align: center;
-            border: 2px solid #4CAF50; /* En flot grøn kant */
+            text-align: center; /* Centrerer alt indhold vandret */
+            border: 2px solid #4CAF50;
             padding: 40px;
             border-radius: 10px;
-            box-shadow: 0 0 20px rgba(76, 175, 80, 0.3); /* Lidt glød */
+            box-shadow: 0 0 20px rgba(76, 175, 80, 0.3);
+            background-color: #333; /* Lidt lysere baggrund i boksen */
+            max-width: 90%; /* Så den ikke bliver for bred på mobiler */
         }
 
+        /* Styling af den øverste tekst */
         h1 {
-            font-size: 3rem;
-            margin: 0;
+            font-size: 2.5rem;
+            margin-bottom: 20px; /* Luft ned til billedet */
+            color: #4CAF50;
         }
 
+        /* Styling af billedet */
+        .mit-billede {
+            width: 300px; /* Bestemmer bredden */
+            max-width: 100%; /* Sikrer at det ikke springer rammen på mobil */
+            height: auto; /* Bevarer billedets proportioner */
+            border-radius: 5px; /* Lidt runde hjørner på billedet */
+            border: 2px solid #fff; /* En hvid ramme omkring billedet */
+        }
+
+        /* Styling af den nederste tekst */
         p {
-            font-size: 1.2rem;
-            color: #aaa;
+            font-size: 1.5rem;
+            margin-top: 20px; /* Luft op til billedet */
+            color: #ddd;
         }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <p>doktorgspot.dk er live!!!</p>
+        <h1>Velkommen til Klinikken</h1>
+
+        <img src="https://picsum.photos/400/300" alt="Stemningsbillede" class="mit-billede">
+
+        <p>Her opererer vi i koden</p>
     </div>
 
 </body>
