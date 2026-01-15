@@ -4,7 +4,49 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Doktor G Spot</title>
-    </head>
+    <style>
+        /* --- KONTROLPANEL --- */
+        :root {
+            /* Ret disse 3 variabler for at ændre designet */
+            --baggrunds-farve: #222222;       /* F.eks. white, black, #ff0000, darkblue */
+            --tekst-farve:     #ffffff;       /* F.eks. black, white, #333333 */
+            --skrifttype:      'Arial', sans-serif; /* F.eks. 'Courier New', 'Georgia', serif */
+        }
+        /* -------------------- */
+
+        body {
+            /* Her bruger vi variablerne fra kontrolpanelet */
+            background-color: var(--baggrunds-farve);
+            color: var(--tekst-farve);
+            font-family: var(--skrifttype);
+
+            /* Dette centrerer alt midt på skærmen (vandret og lodret) */
+            display: flex;
+            flex-direction: column; /* Sætter tingene ovenpå hinanden */
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;      /* Fylder hele højden af vinduet */
+            margin: 0;
+            text-align: center;     /* Sikrer at teksten står i midten */
+        }
+
+        h1 {
+            margin: 0 0 20px 0; /* Lidt luft under overskriften */
+            font-size: 3rem;    /* Størrelsen på overskriften */
+        }
+
+        img {
+            max-width: 90%;     /* Sikrer billedet ikke bliver bredere end skærmen */
+            height: auto;       /* Bevarer billedets proportioner */
+            display: block;     /* Hjælper med layout */
+        }
+
+        p {
+            margin: 20px 0 0 0; /* Lidt luft over den nederste tekst */
+            font-size: 1.5rem;  /* Størrelsen på brødteksten */
+        }
+    </style>
+</head>
 <body>
 
     <h1>Velkommen til Klinikken</h1>
