@@ -40,40 +40,20 @@
     <script>
         const resultat = document.getElementById('resultat');
 
-        // mgPrKg = døgndosis, styrke = mg/ml, doser = antal pr. døgn
-        const MIDLER = {
-            pcv:      { navn: 'Penicillin V', mgPrKg: 50, styrke: 50, doser: 3 },
-            amox:     { navn: 'Amoxicillin', mgPrKg: 50, styrke: 50, doser: 3, maks: 3000 },
-            amoxclav: { navn: 'Amoxicillin + clavulansyre', mgPrKg: 50, styrke: 50, doser: 3, maksKg: 40,
-                        note: 'Kun børn over 1 måned. Dosis angivet som amoxicillin (+ 12,5 mg/kg/døgn clavulansyre).' },
-            clari:    { navn: 'Clarithromycin', mgPrKg: 15, doser: 2 },
-            trim:     { navn: 'Trimethoprim', mgPrKg: 6, styrke: 10, doser: 2 },
-        };
-
         function beregn() {
-            const m = MIDLER[document.getElementById('middel').value];
+            const valg = document.getElementById('middel').value;
+            const m = ANTIBIOTIKA[valg];
             const kg = læsTal('vaegt');
             if (isNaN(kg)) { resultat.innerHTML = ''; return; }
             if (kg <= 0 || kg > 150) return visBesked(resultat, 'Indtast en gyldig vægt i kg.');
             if (kg < 5) return visBesked(resultat, 'Under 5 kg: dosering ikke dækket af tabellen – kontakt pædiater.');
             if (kg >= (m.maksKg || 40)) return visBesked(resultat, 'Barnet vejer ' + tal(kg, 1) + ' kg – brug voksendosering (tabletter) jf. antibiotikavejledningen.');
 
-            let døgn = m.mgPrKg * kg;
-            let loft = '';
-            if (m.maks && døgn > m.maks) { døgn = m.maks; loft = ' (loft nået)'; }
-            const dosis = døgn / m.doser;
-
-            // Clarithromycin: 25 mg/ml op til 12 kg, ellers 50 mg/ml (10–12 kg: begge kan bruges)
-            const styrker = m.styrke ? [m.styrke] : (kg < 10 ? [25] : kg <= 12 ? [25, 50] : [50]);
-            const mlRækker = styrker.map(s => [
-                'Mikstur ' + s + ' mg/ml',
-                tal(dosis / s, 1) + ' ml × ' + m.doser + ' dagligt (' + tal(døgn / s, 1) + ' ml/døgn)'
-            ]);
-
+            const d = antibiotikaDosis(valg, kg);
             const rækker = [
-                ['Døgndosis', tal(døgn) + ' mg' + loft + ' (' + m.mgPrKg + ' mg/kg)'],
-                ['Enkeltdosis', tal(dosis) + ' mg × ' + m.doser + ' dagligt'],
-                ...mlRækker,
+                ['Døgndosis', tal(d.døgn) + ' mg' + (d.loft ? ' (loft nået)' : '') + ' (' + m.mgPrKg + ' mg/kg)'],
+                ['Enkeltdosis', tal(d.dosis) + ' mg × ' + m.doser + ' dagligt'],
+                ...d.ml.map(x => ['Mikstur ' + x.styrke + ' mg/ml', tal(x.dosis, 1) + ' ml × ' + m.doser + ' dagligt (' + tal(x.døgn, 1) + ' ml/døgn)']),
             ];
             if (kg > 30) rækker.push(['Bemærk', 'Over 30 kg ligger uden for den officielle tabel – beregnet efter samme mg/kg.']);
             if (m.note) rækker.push(['Bemærk', m.note]);

@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hvem er skurken?</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="spil.css">
+    <script src="menu.js" defer></script>
+    <script src="spil.js"></script>
+    <script src="pilledle-data.js"></script>
+    <script src="pilledle-officiel.js"></script>
+    <script src="skurken-data.js"></script>
+    <style>
+        .efterlyst { border: 2px solid var(--tekst-farve); border-radius: 10px; padding: 14px 16px; margin: 16px 0; }
+        .efterlyst h2 { margin: 0 0 10px; font-size: 1rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--advarsel); }
+        .efterlyst ol { margin: 0; padding-left: 22px; }
+        .efterlyst li { padding: 5px 0; font-weight: bold; }
+        .efterlyst li.skjult { color: var(--dæmpet); font-weight: normal; font-style: italic; }
+        .efterlyst li.ny { animation: ind 0.3s ease-out; }
+    </style>
+</head>
+<body class="beregner">
+    <main>
+        <div class="spil-top">
+            <h1>Hvem er skurken?</h1>
+            <span class="tilstand" id="tilstand"></span>
+        </div>
+        <p class="undertitel">Patienten har fået bivirkninger. Find lægemidlet, der er skyld i dem, på 5 forsøg.</p>
+
+        <div class="efterlyst"><h2>Efterlyst for</h2><ol id="bivirkninger"></ol></div>
+
+        <div class="søg" id="søg">
+            <form class="gæt-form" id="gæt-form" autocomplete="off">
+                <input id="gæt-input" placeholder="Skriv et lægemiddel" aria-label="Dit gæt"
+                       autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                       role="combobox" aria-autocomplete="list" aria-controls="forslag" aria-expanded="false">
+                <button class="knap" type="submit" id="gæt-knap">Gæt</button>
+            </form>
+            <ul class="forslag" id="forslag" role="listbox" hidden></ul>
+        </div>
+        <p class="fejl" id="fejl" aria-live="polite"></p>
+
+        <div id="slut"></div>
+        <div id="gæt-liste"></div>
+
+        <details class="regler">
+            <summary>Sådan spiller du</summary>
+            <p>Du ser én bivirkning. Gæt lægemidlet – hvert forkert gæt afslører en bivirkning mere (de bliver mere og mere karakteristiske). Ved hvert gæt ser du, om du har ramt rigtigt <strong>område</strong> (ATC-hovedgruppe) og <strong>klasse</strong>.</p>
+            <p>Ny skurk hver dag ved midnat. Med “Øv dig” kan du spille flere.</p>
+            <p>Bivirkningerne er forenklede udvalg af velkendte bivirkninger – til sjov og læring, ikke en klinisk opslagskilde.</p>
+        </details>
+    </main>
+
+    <script>
+        const MAKS = 5;
+        const $ = id => document.getElementById(id);
+        const iDag = datoNøgle();
+
+        // Flet officielle handelsnavne ind, så alle mærker kan bruges som gæt
+        if (typeof OFFICIEL !== 'undefined') {
+            for (const p of PRÆPARATER) {
+                const o = OFFICIEL.data[p.atc];
+                if (!o) continue;
+                const set = new Set(p.mærker.map(m => m.toLowerCase()));
+                for (const m of o.mærker) if (!set.has(m.toLowerCase())) { set.add(m.toLowerCase()); p.mærker.push(m); }
+            }
+        }
+        const SAGER = SKURKE.map(s => ({ ...s, præparat: PRÆPARATER.find(p => p.navn === s.navn) })).filter(s => s.præparat);
+        let spil;
+
+        function nytDagsspil() {
+            spil = { tilstand: 'dag', sag: dagensElement(SAGER, 666, iDag), gæt: [], slut: null };
+            for (const navn of lager('skurken-' + iDag) || []) registrér(navn, false);
+        }
+        function nytØvespil() {
+            spil = { tilstand: 'øv', sag: tilfældigtAndet(SAGER, spil && spil.sag), gæt: [], slut: null };
+        }
+        function registrér(navn, gem = true) {
+            spil.gæt.push(navn);
+            if (navn === spil.sag.navn) spil.slut = 'vundet';
+            else if (spil.gæt.length >= MAKS) spil.slut = 'tabt';
+            if (gem && spil.tilstand === 'dag') {
+                lager('skurken-' + iDag, spil.gæt);
+                if (spil.slut) registrérResultat('skurken', iDag, spil.slut === 'vundet', spil.gæt.length);
+            }
+        }
+
+        function sammenlign(navn) {
+            const g = PRÆPARATER.find(p => p.navn === navn), s = spil.sag.præparat;
+            return [
+                { titel: 'Område', værdi: g.atc[0] + ' · ' + ATC_HOVEDGRUPPER[g.atc[0]], farve: g.atc[0] === s.atc[0] ? 'grøn' : 'grå' },
+                { titel: 'Klasse', værdi: g.klasse, farve: g.klasse === s.klasse ? 'grøn' : (g.atc.slice(0, 4) === s.atc.slice(0, 4) ? 'gul' : 'grå') },
+            ];
+        }
+
+        function delTekst() {
+            const rækker = spil.gæt.map(n => n === spil.sag.navn ? '🟩🟩' : sammenlign(n).map(f => ({ grøn: '🟩', gul: '🟨', grå: '⬛' })[f.farve]).join(''));
+            return 'Hvem er skurken? ' + (spil.tilstand === 'dag' ? iDag : '(øverunde)') + ' ' +
+                (spil.slut === 'vundet' ? spil.gæt.length : 'X') + '/' + MAKS + '\n' + rækker.join('\n');
+        }
+
+        function vis() {
+            const b = spil.sag.bivirkninger;
+            const n = spil.slut ? b.length : Math.min(spil.gæt.length + 1, b.length);
+            $('tilstand').textContent = spil.tilstand === 'dag' ? 'Dagens: ' + iDag : 'Øverunde';
+            $('bivirkninger').innerHTML = b.map((x, i) =>
+                i < n ? '<li class="' + (i === n - 1 && !spil.slut ? 'ny' : '') + '">' + x + '</li>' : '<li class="skjult">???</li>'
+            ).join('');
+            $('gæt-input').disabled = $('gæt-knap').disabled = !!spil.slut;
+            $('fejl').textContent = '';
+            $('gæt-liste').innerHTML = spil.gæt.slice().reverse().map((navn, i) =>
+                '<div class="gæt' + (i === 0 ? ' ny' : '') + '"><div class="gæt-hoved"><span class="gæt-navn">' + (navn === spil.sag.navn ? '✓ ' : '✗ ') + navn + '</span></div>' +
+                '<div class="felter to">' + sammenlign(navn).map(f =>
+                    '<div class="felt-boks ' + f.farve + '"><small>' + f.titel + '</small><span>' + f.værdi + '</span></div>').join('') + '</div></div>'
+            ).join('');
+
+            if (!spil.slut) { $('slut').innerHTML = ''; return; }
+            const p = spil.sag.præparat;
+            $('slut').innerHTML = '<div class="slut"><h2>' +
+                (spil.slut === 'vundet' ? '🕵️ Skurken fanget på ' + spil.gæt.length + ' forsøg!' : 'Skurken slap væk – det var ' + p.navn) + '</h2>' +
+                '<table><tr><th>Lægemiddel</th><td>' + p.navn + '</td></tr>' +
+                '<tr><th>Handelsnavne</th><td>' + p.mærker.slice(0, 6).join(', ') + '</td></tr>' +
+                '<tr><th>Klasse</th><td>' + p.klasse + '</td></tr></table>' +
+                '<div class="knapper"><button class="knap" id="del">Del resultat</button>' +
+                '<button class="knap sekundær" id="øv">' + (spil.tilstand === 'dag' ? 'Øv dig med en ny' : 'Ny skurk') + '</button>' +
+                (spil.tilstand === 'øv' ? '<button class="knap sekundær" id="tilbage">Tilbage til dagens</button>' : '') + '</div>' +
+                (spil.tilstand === 'dag' ? statistikHTML('skurken') : '') + '</div>';
+            delKnap($('del'), delTekst);
+            $('øv').onclick = () => { nytØvespil(); vis(); };
+            if ($('tilbage')) $('tilbage').onclick = () => { nytDagsspil(); vis(); };
+        }
+
+        lavForslag({
+            felt: $('gæt-input'), liste: $('forslag'), form: $('gæt-form'), boks: $('søg'),
+            elementer: PRÆPARATER,
+            navn: p => p.navn,
+            aliaser: p => p.mærker,
+            deaktiveret: p => spil.gæt.includes(p.navn),
+            låst: () => !!spil.slut,
+            fejl: t => { $('fejl').textContent = t; },
+            ingen: 'Ingen lægemidler matcher',
+            vælg: p => { registrér(p.navn); vis(); },
+        });
+
+        nytDagsspil();
+        vis();
+    </script>
+</body>
+</html>

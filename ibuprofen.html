@@ -30,8 +30,6 @@
 
     <script>
         const resultat = document.getElementById('resultat');
-        const MIXTUR_MG_PR_ML = 20;
-
         function beregn() {
             const kg = læsTal('vaegt');
             if (isNaN(kg)) { resultat.innerHTML = ''; return; }
@@ -39,20 +37,19 @@
             if (document.getElementById('ung').checked || kg < 7) {
                 return visBesked(resultat, 'Ibuprofen må ikke gives til børn under 6 måneder eller under 7 kg. Brug paracetamol.');
             }
-            if (kg >= 40) {
+            const d = ibuprofenDosis(kg);
+            if (d.voksen) {
                 return visTabel(resultat, [
                     ['Enkeltdosis', '200–400 mg'],
                     ['Interval', 'Mindst 6 timer, op til 3–4 gange i døgnet'],
                     ['Maks. døgndosis', '1200 mg'],
                 ]);
             }
-            const dosisMin = 5 * kg, dosisMax = 7.5 * kg;
-            const døgnMin = 20 * kg, døgnMax = 30 * kg;
             visTabel(resultat, [
-                ['Enkeltdosis', tal(dosisMin) + '–' + tal(dosisMax) + ' mg'],
-                ['Mikstur 20 mg/ml', tal(dosisMin / MIXTUR_MG_PR_ML, 1) + '–' + tal(dosisMax / MIXTUR_MG_PR_ML, 1) + ' ml pr. dosis'],
+                ['Enkeltdosis', tal(d.mgMin) + '–' + tal(d.mgMax) + ' mg'],
+                ['Mikstur 20 mg/ml', tal(d.mlMin, 1) + '–' + tal(d.mlMax, 1) + ' ml pr. dosis'],
                 ['Interval', 'Hver 6. time, op til 4 gange i døgnet'],
-                ['Maks. døgndosis', tal(døgnMin) + '–' + tal(døgnMax) + ' mg (' + tal(døgnMax / MIXTUR_MG_PR_ML, 1) + ' ml)'],
+                ['Maks. døgndosis', tal(d.døgnMin) + '–' + tal(d.døgnMax) + ' mg (' + tal(d.døgnMax / IBUPROFEN_MIKSTUR_MG_PR_ML, 1) + ' ml)'],
             ]);
         }
         bindAlle(beregn);

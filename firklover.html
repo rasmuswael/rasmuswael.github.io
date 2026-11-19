@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firkløver</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="spil.css">
+    <script src="menu.js" defer></script>
+    <script src="spil.js"></script>
+    <script src="firklover-data.js"></script>
+    <style>
+        .n1 { --g: var(--gul); } .n2 { --g: var(--grøn); } .n3 { --g: var(--blå); } .n4 { --g: var(--lilla); }
+        .løst { background: var(--g); color: #fff; border-radius: 8px; padding: 10px; margin-bottom: 8px; text-align: center; animation: ind 0.3s ease-out; }
+        .løst b { display: block; text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.9rem; }
+        .løst span { font-size: 0.85rem; }
+        .bræt { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+        .brik {
+            font: inherit; font-weight: bold; font-size: 0.74rem; line-height: 1.15;
+            min-height: 64px; padding: 4px; border-radius: 8px; border: none; cursor: pointer;
+            background: #4a4a4c; color: #fff; overflow-wrap: anywhere; hyphens: auto;
+            touch-action: manipulation;
+        }
+        .brik.valgt { background: var(--tekst-farve); color: var(--baggrunds-farve); }
+        .brik.ryst { animation: ryst 0.35s; }
+        @keyframes ryst { 0%,100% { transform: none; } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+        .fejl-prikker { margin: 14px 0 0; color: var(--dæmpet); text-align: center; }
+        .fejl-prikker i { display: inline-block; width: 12px; height: 12px; margin: 0 3px; border-radius: 50%; background: var(--tekst-farve); vertical-align: middle; }
+        .fejl-prikker i.brugt { background: var(--grå); }
+        .styring { justify-content: center; }
+        .besked-linje { text-align: center; min-height: 1.4em; color: var(--advarsel); margin: 10px 0 0; }
+        @media (min-width: 480px) { .brik { font-size: 0.85rem; min-height: 72px; } }
+    </style>
+</head>
+<body class="beregner">
+    <main>
+        <div class="spil-top">
+            <h1>Firkløver</h1>
+            <span class="tilstand" id="tilstand"></span>
+        </div>
+        <p class="undertitel">Find de 4 grupper med 4 lægemidler, der hører sammen. Du må lave 4 fejl.</p>
+
+        <div id="løste"></div>
+        <div class="bræt" id="bræt"></div>
+        <p class="besked-linje" id="besked" aria-live="polite"></p>
+        <p class="fejl-prikker" id="prikker"></p>
+        <div class="knapper styring" id="styring">
+            <button class="knap sekundær" id="bland" type="button">Bland</button>
+            <button class="knap sekundær" id="fravælg" type="button">Fravælg alle</button>
+            <button class="knap" id="gæt" type="button" disabled>Gæt</button>
+        </div>
+
+        <div id="slut"></div>
+
+        <details class="regler">
+            <summary>Sådan spiller du</summary>
+            <p>Vælg 4 lægemidler, du mener hører sammen, og tryk “Gæt”. Grupperne kan være virkningsmekanisme, brug, bivirkninger, handelsnavne eller noget helt fjerde.</p>
+            <p>Sværhedsgrad: <span class="farve" style="background:var(--gul)"></span> let, <span class="farve" style="background:var(--grøn)"></span> middel, <span class="farve" style="background:var(--blå)"></span> svær, <span class="farve" style="background:var(--lilla)"></span> lumsk.</p>
+            <p>“Én fra!” betyder, at 3 af dine 4 hører sammen. En ny opgave hver dag ved midnat.</p>
+            <p>Spillet er til sjov og læring – ikke en klinisk opslagskilde.</p>
+        </details>
+    </main>
+
+    <script>
+        const MAKS_FEJL = 4;
+        const $ = id => document.getElementById(id);
+        const iDag = datoNøgle();
+        const EMOJI = { 1: '🟨', 2: '🟩', 3: '🟦', 4: '🟪' };
+        let spil;   // { tilstand, opgave, rækkefølge: [navne], valgt: Set, løst: [gruppeindeks], forsøg: [[navne]], fejl, slut }
+
+        function gruppeAf(opgave, navn) { return opgave.findIndex(g => g.medlemmer.includes(navn)); }
+
+        function nytSpil(tilstand, opgave) {
+            spil = { tilstand, opgave, rækkefølge: blandet(opgave.flatMap(g => g.medlemmer)), valgt: new Set(), løst: [], forsøg: [], fejl: 0, slut: null };
+        }
+        function nytDagsspil() {
+            nytSpil('dag', dagensElement(OPGAVER, 4242, iDag));
+            for (const f of lager('firklover-' + iDag) || []) prøv(f, false);
+        }
+        function nytØvespil() { nytSpil('øv', tilfældigtAndet(OPGAVER, spil && spil.opgave)); }
+
+        // Returnerer 'rigtigt', 'én fra' eller 'forkert'
+        function prøv(navne, gem = true) {
+            if (spil.slut) return;
+            spil.forsøg.push(navne);
+            const grupper = navne.map(n => gruppeAf(spil.opgave, n));
+            const tæl = {};
+            grupper.forEach(g => tæl[g] = (tæl[g] || 0) + 1);
+            const flest = Math.max(...Object.values(tæl));
+            let svar;
+            if (flest === 4) {
+                spil.løst.push(grupper[0]);
+                spil.rækkefølge = spil.rækkefølge.filter(n => !navne.includes(n));
+                svar = 'rigtigt';
+                spil.valgt.clear();
+                if (spil.løst.length === 4) spil.slut = 'vundet';
+            } else {
+                spil.fejl++;
+                svar = flest === 3 ? 'én fra' : 'forkert';
+                if (spil.fejl >= MAKS_FEJL) spil.slut = 'tabt';
+            }
+            if (gem && spil.tilstand === 'dag') {
+                lager('firklover-' + iDag, spil.forsøg);
+                if (spil.slut) registrérResultat('firklover', iDag, spil.slut === 'vundet', spil.fejl + 1);
+            }
+            return svar;
+        }
+
+        function delTekst() {
+            return 'Firkløver ' + (spil.tilstand === 'dag' ? iDag : '(øverunde)') + ' – ' +
+                (spil.slut === 'vundet' ? spil.fejl + ' fejl' : 'ikke løst') + '\n' +
+                spil.forsøg.map(f => f.map(n => EMOJI[spil.opgave[gruppeAf(spil.opgave, n)].niveau]).join('')).join('\n');
+        }
+
+        function vis() {
+            $('tilstand').textContent = spil.tilstand === 'dag' ? 'Dagens: ' + iDag : 'Øverunde';
+            // Ved tab vises de manglende grupper også
+            const visLøst = spil.slut === 'tabt' ? [...spil.løst, ...[0, 1, 2, 3].filter(i => !spil.løst.includes(i))] : spil.løst;
+            $('løste').innerHTML = visLøst.map(i => {
+                const g = spil.opgave[i];
+                return '<div class="løst n' + g.niveau + '"><b>' + g.navn + '</b><span>' + g.medlemmer.join(', ') + '</span></div>';
+            }).join('');
+            $('bræt').innerHTML = spil.slut ? '' : spil.rækkefølge.map(n =>
+                '<button class="brik' + (spil.valgt.has(n) ? ' valgt' : '') + '" type="button" data-navn="' + n + '">' + n + '</button>'
+            ).join('');
+            $('prikker').innerHTML = spil.slut ? '' : 'Fejl tilbage: ' + Array.from({ length: MAKS_FEJL }, (_, i) => '<i class="' + (i < spil.fejl ? 'brugt' : '') + '"></i>').join('');
+            $('styring').hidden = !!spil.slut;
+            $('gæt').disabled = spil.valgt.size !== 4;
+            visSlut();
+        }
+
+        function visSlut() {
+            if (!spil.slut) { $('slut').innerHTML = ''; return; }
+            $('slut').innerHTML = '<div class="slut"><h2>' +
+                (spil.slut === 'vundet' ? (spil.fejl === 0 ? '🍀 Perfekt – ingen fejl!' : '🎉 Løst med ' + spil.fejl + ' fejl') : 'Øv – bedre held i morgen') + '</h2>' +
+                '<div class="knapper"><button class="knap" id="del">Del resultat</button>' +
+                '<button class="knap sekundær" id="øv">' + (spil.tilstand === 'dag' ? 'Øv dig med en anden' : 'Ny opgave') + '</button>' +
+                (spil.tilstand === 'øv' ? '<button class="knap sekundær" id="tilbage">Tilbage til dagens</button>' : '') + '</div>' +
+                (spil.tilstand === 'dag' ? statistikHTML('firklover') : '') + '</div>';
+            delKnap($('del'), delTekst);
+            $('øv').onclick = () => { nytØvespil(); vis(); };
+            if ($('tilbage')) $('tilbage').onclick = () => { nytDagsspil(); vis(); };
+        }
+
+        $('bræt').addEventListener('click', e => {
+            const b = e.target.closest('.brik');
+            if (!b) return;
+            const n = b.dataset.navn;
+            if (spil.valgt.has(n)) spil.valgt.delete(n);
+            else if (spil.valgt.size < 4) spil.valgt.add(n);
+            $('besked').textContent = '';
+            vis();
+        });
+        $('bland').onclick = () => { spil.rækkefølge = blandet(spil.rækkefølge); vis(); };
+        $('fravælg').onclick = () => { spil.valgt.clear(); vis(); };
+        $('gæt').onclick = () => {
+            const valgte = [...spil.valgt];
+            const tidligere = spil.forsøg.some(f => f.length === 4 && valgte.every(n => f.includes(n)));
+            if (tidligere) { $('besked').textContent = 'Den kombination har du allerede prøvet.'; return; }
+            const svar = prøv(valgte);
+            if (svar === 'rigtigt') { $('besked').textContent = ''; vis(); return; }
+            $('besked').textContent = svar === 'én fra' ? 'Én fra!' : 'Ikke en gruppe.';
+            vis();
+            if (!spil.slut) document.querySelectorAll('.brik').forEach(b => {
+                if (valgte.includes(b.dataset.navn)) { b.classList.add('ryst'); }
+            });
+        };
+
+        nytDagsspil();
+        vis();
+    </script>
+</body>
+</html>

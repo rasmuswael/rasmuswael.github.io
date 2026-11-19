@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagnosedle</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="spil.css">
+    <script src="menu.js" defer></script>
+    <script src="spil.js"></script>
+    <script src="diagnosedle-data.js"></script>
+    <style>
+        .journal { list-style: none; margin: 16px 0; padding: 0; counter-reset: ledetråd; }
+        .journal li {
+            counter-increment: ledetråd;
+            display: flex; gap: 12px; align-items: flex-start;
+            padding: 12px 14px; margin-bottom: 8px;
+            border: 1px solid var(--linje); border-radius: 6px;
+            animation: ind 0.3s ease-out;
+        }
+        .journal li::before {
+            content: counter(ledetråd);
+            flex: none; width: 26px; height: 26px; border-radius: 50%;
+            display: grid; place-items: center;
+            background: var(--tekst-farve); color: var(--baggrunds-farve); font-weight: bold; font-size: 0.85rem;
+        }
+        .journal li.skjult { color: var(--dæmpet); border-style: dashed; animation: none; }
+        .journal li.skjult::before { background: var(--grå); color: var(--dæmpet); }
+        .forkerte { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 12px; }
+        .forkerte span { background: var(--rød); color: #fff; padding: 4px 10px; border-radius: 999px; font-size: 0.85rem; text-decoration: line-through; }
+    </style>
+</head>
+<body class="beregner">
+    <main>
+        <div class="spil-top">
+            <h1>Diagnosedle</h1>
+            <span class="tilstand" id="tilstand"></span>
+        </div>
+        <p class="undertitel">Dagens patient. Stil diagnosen med så få ledetråde som muligt – hvert forkert gæt afslører en ny.</p>
+
+        <ol class="journal" id="journal"></ol>
+        <div class="forkerte" id="forkerte"></div>
+
+        <div class="søg" id="søg">
+            <form class="gæt-form" id="gæt-form" autocomplete="off">
+                <input id="gæt-input" placeholder="Skriv en diagnose" aria-label="Din diagnose"
+                       autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                       role="combobox" aria-autocomplete="list" aria-controls="forslag" aria-expanded="false">
+                <button class="knap" type="submit" id="gæt-knap">Gæt</button>
+            </form>
+            <ul class="forslag" id="forslag" role="listbox" hidden></ul>
+        </div>
+        <p class="fejl" id="fejl" aria-live="polite"></p>
+        <div class="knapper"><button class="knap sekundær" id="spring" type="button">Vis næste ledetråd</button></div>
+
+        <div id="slut"></div>
+
+        <details class="regler">
+            <summary>Sådan spiller du</summary>
+            <p>Du ser første ledetråd om dagens patient. Gæt diagnosen – hvert forkert gæt (eller “Vis næste ledetråd”) afslører en ny. Du har 6 ledetråde i alt; jo færre du bruger, jo bedre.</p>
+            <p>Der kommer en ny patient hver dag ved midnat. Med “Øv dig” kan du spille flere.</p>
+            <p>Tilfældene er forenklede lærebogseksempler – til sjov og læring, ikke en klinisk opslagskilde.</p>
+        </details>
+    </main>
+
+    <script>
+        const MAKS = 6;
+        const $ = id => document.getElementById(id);
+        const iDag = datoNøgle();
+        const DX = DIAGNOSER.map(([navn, ...aliaser]) => ({ navn, aliaser }));
+        let spil;   // { tilstand, tilfælde, gæt: [navne eller null for 'spring over'], slut }
+
+        function vist() { return Math.min(spil.gæt.length + 1, MAKS); }
+
+        function nytDagsspil() {
+            spil = { tilstand: 'dag', tilfælde: dagensElement(TILFÆLDE, 1729, iDag), gæt: [], slut: null };
+            for (const g of lager('diagnosedle-' + iDag) || []) registrér(g, false);
+        }
+        function nytØvespil() {
+            spil = { tilstand: 'øv', tilfælde: tilfældigtAndet(TILFÆLDE, spil && spil.tilfælde), gæt: [], slut: null };
+        }
+
+        function registrér(navn, gem = true) {
+            spil.gæt.push(navn);
+            if (navn === spil.tilfælde.svar) spil.slut = 'vundet';
+            else if (spil.gæt.length >= MAKS) spil.slut = 'tabt';
+            if (gem && spil.tilstand === 'dag') {
+                lager('diagnosedle-' + iDag, spil.gæt);
+                if (spil.slut) registrérResultat('diagnosedle', iDag, spil.slut === 'vundet', spil.gæt.length);
+            }
+        }
+
+        function delTekst() {
+            const felter = spil.gæt.map(g => g === spil.tilfælde.svar ? '🟩' : g === null ? '⬜' : '🟥');
+            while (felter.length < MAKS) felter.push('⬛');
+            return 'Diagnosedle ' + (spil.tilstand === 'dag' ? iDag : '(øverunde)') + ' ' +
+                (spil.slut === 'vundet' ? spil.gæt.length : 'X') + '/' + MAKS + '\n' + felter.join('');
+        }
+
+        function vis() {
+            const t = spil.tilfælde;
+            $('tilstand').textContent = spil.tilstand === 'dag' ? 'Dagens: ' + iDag : 'Øverunde';
+            const n = spil.slut ? MAKS : vist();
+            $('journal').innerHTML = t.ledetråde.map((l, i) =>
+                i < n ? '<li>' + l + '</li>' : '<li class="skjult">Skjult ledetråd</li>'
+            ).join('');
+            $('forkerte').innerHTML = spil.gæt.filter(g => g && g !== t.svar).map(g => '<span>' + g + '</span>').join('');
+            const slut = !!spil.slut;
+            $('gæt-input').disabled = $('gæt-knap').disabled = slut;
+            $('spring').hidden = slut || vist() >= MAKS;
+            $('fejl').textContent = '';
+
+            if (!slut) { $('slut').innerHTML = ''; return; }
+            const synonymer = DX.find(d => d.navn === t.svar).aliaser;
+            $('slut').innerHTML = '<div class="slut"><h2>' +
+                (spil.slut === 'vundet' ? '🎉 Rigtigt efter ' + spil.gæt.length + ' ' + (spil.gæt.length === 1 ? 'ledetråd' : 'ledetråde') + '!' : 'Diagnosen var ' + t.svar) + '</h2>' +
+                '<table><tr><th>Diagnose</th><td>' + t.svar + (synonymer.length ? ' (' + synonymer.join(', ') + ')' : '') + '</td></tr>' +
+                '<tr><th>Læringspunkt</th><td style="font-weight:normal">' + t.læring + '</td></tr></table>' +
+                '<div class="knapper"><button class="knap" id="del">Del resultat</button>' +
+                '<button class="knap sekundær" id="øv">' + (spil.tilstand === 'dag' ? 'Øv dig med en ny' : 'Ny patient') + '</button>' +
+                (spil.tilstand === 'øv' ? '<button class="knap sekundær" id="tilbage">Tilbage til dagens</button>' : '') + '</div>' +
+                (spil.tilstand === 'dag' ? statistikHTML('diagnosedle') : '') + '</div>';
+            delKnap($('del'), delTekst);
+            $('øv').onclick = () => { nytØvespil(); vis(); };
+            if ($('tilbage')) $('tilbage').onclick = () => { nytDagsspil(); vis(); };
+        }
+
+        lavForslag({
+            felt: $('gæt-input'), liste: $('forslag'), form: $('gæt-form'), boks: $('søg'),
+            elementer: DX,
+            navn: d => d.navn,
+            aliaser: d => d.aliaser,
+            deaktiveret: d => spil.gæt.includes(d.navn),
+            låst: () => !!spil.slut,
+            fejl: t => { $('fejl').textContent = t; },
+            ingen: 'Ingen diagnoser matcher',
+            vælg: d => { registrér(d.navn); vis(); },
+        });
+        $('spring').onclick = () => { if (!spil.slut) { registrér(null); vis(); } };
+
+        nytDagsspil();
+        vis();
+    </script>
+</body>
+</html>

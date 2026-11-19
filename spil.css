@@ -1,0 +1,99 @@
+/* Fælles stil til spillene (bruges sammen med style.css) */
+:root {
+    --grøn: #538d4e;
+    --gul: #b59f3b;
+    --blå: #4a7bc4;
+    --lilla: #8a5cc2;
+    --rød: #b5443b;
+    --grå: #3a3a3c;
+}
+
+.spil-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.tilstand { color: var(--dæmpet); font-size: 0.95rem; }
+
+/* Knapper */
+.knap {
+    font: inherit; font-weight: bold; cursor: pointer;
+    padding: 10px 16px; border-radius: 6px;
+    border: 2px solid var(--tekst-farve);
+    background: var(--tekst-farve); color: var(--baggrunds-farve);
+    touch-action: manipulation;
+}
+.knap.sekundær { background: transparent; color: var(--tekst-farve); }
+.knap:disabled { opacity: 0.4; cursor: default; }
+.knapper { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+
+/* Gæt-felt med forslagsliste */
+.søg { position: relative; margin: 20px 0 8px; scroll-margin-top: 12px; }
+.gæt-form { display: flex; gap: 8px; }
+.gæt-form input {
+    flex: 1; min-width: 0;
+    font-size: 1.15rem; padding: 10px 12px;
+    border: 2px solid var(--tekst-farve); border-radius: 6px;
+    background: var(--baggrunds-farve); color: var(--tekst-farve); font-family: inherit;
+}
+.forslag {
+    position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 5;
+    margin: 0; padding: 0; list-style: none;
+    max-height: min(50vh, 320px); overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+    background: var(--baggrunds-farve); border: 2px solid var(--tekst-farve); border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+.forslag[hidden] { display: none; }
+.forslag li {
+    min-height: 44px; box-sizing: border-box; padding: 8px 12px; cursor: pointer;
+    display: flex; flex-direction: column; justify-content: center;
+    border-bottom: 1px solid var(--linje);
+}
+.forslag li:last-child { border-bottom: none; }
+.forslag li b { font-size: 1rem; }
+.forslag li small { color: var(--dæmpet); font-size: 0.8rem; margin-top: 2px; }
+.forslag li.aktiv, .forslag li:hover { background: var(--tekst-farve); color: var(--baggrunds-farve); }
+.forslag li.aktiv small, .forslag li:hover small { color: #555; }
+.forslag li.gættet { opacity: 0.35; cursor: default; text-decoration: line-through; }
+.forslag li.gættet:hover { background: none; color: inherit; }
+.forslag .tom { color: var(--dæmpet); cursor: default; }
+.fejl { color: var(--advarsel); min-height: 1.4em; margin: 0 0 8px; font-size: 0.95rem; }
+
+/* Ledetråde-boks */
+.ledetråde { margin: 8px 0 20px; padding: 12px 14px; border: 1px dashed var(--linje); border-radius: 6px; color: var(--dæmpet); font-size: 0.95rem; }
+.ledetråde strong { color: var(--tekst-farve); }
+.ledetråde p { margin: 4px 0; }
+
+/* Gæt med farvede felter */
+.gæt { margin-bottom: 16px; }
+.gæt.ny { animation: ind 0.3s ease-out; }
+@keyframes ind { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.gæt-hoved { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
+.gæt-navn { font-weight: bold; font-size: 1.1rem; }
+.felter { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.felter.to { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.felt-boks {
+    border-radius: 6px; padding: 8px; min-height: 58px;
+    background: var(--grå); color: #fff;
+    display: flex; flex-direction: column; justify-content: space-between;
+    overflow-wrap: break-word; hyphens: auto;
+}
+.felt-boks small { font-size: 0.68rem; opacity: 0.85; text-transform: uppercase; letter-spacing: 0.04em; }
+.felt-boks span { font-size: 0.8rem; font-weight: bold; line-height: 1.2; }
+.felt-boks.grøn { background: var(--grøn); }
+.felt-boks.gul { background: var(--gul); }
+.felt-boks small::before { margin-right: 4px; }
+.felt-boks.grøn small::before { content: '✓'; }
+.felt-boks.gul small::before { content: '≈'; }
+.felt-boks.grå small::before { content: '✗'; }
+
+/* Slutskærm og statistik */
+.slut { margin: 24px 0; padding: 16px; border: 2px solid var(--tekst-farve); border-radius: 8px; }
+.slut h2 { margin: 0 0 8px; }
+.slut table { margin: 12px 0; }
+.statistik { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; text-align: center; margin-top: 16px; }
+.statistik b { display: block; font-size: 1.6rem; }
+.statistik span { font-size: 0.75rem; color: var(--dæmpet); }
+
+/* Regler */
+.regler summary { cursor: pointer; font-weight: bold; }
+.regler { margin-top: 28px; color: var(--dæmpet); line-height: 1.5; }
+.farve { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: middle; }
+
+[hidden] { display: none !important; }

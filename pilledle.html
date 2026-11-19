@@ -7,96 +7,14 @@
     <link rel="stylesheet" href="style.css">
     <script src="menu.js" defer></script>
     <script src="pilledle-data.js"></script>
+    <script src="pilledle-officiel.js"></script>
+    <link rel="stylesheet" href="spil.css">
+    <script src="spil.js"></script>
     <style>
-        :root {
-            --grøn: #538d4e;
-            --gul: #b59f3b;
-            --grå: #3a3a3c;
-        }
-        .spil-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-        .tilstand { color: var(--dæmpet); font-size: 0.95rem; }
-
-        .søg { position: relative; margin: 20px 0 8px; scroll-margin-top: 12px; }
-        .gæt-form { display: flex; gap: 8px; }
-        .gæt-form input {
-            flex: 1; min-width: 0;
-            font-size: 1.15rem; padding: 10px 12px;
-            border: 2px solid var(--tekst-farve); border-radius: 6px;
-            background: var(--baggrunds-farve); color: var(--tekst-farve); font-family: inherit;
-        }
-        .knap {
-            font: inherit; font-weight: bold; cursor: pointer;
-            padding: 10px 16px; border-radius: 6px;
-            border: 2px solid var(--tekst-farve);
-            background: var(--tekst-farve); color: var(--baggrunds-farve);
-        }
-        .knap.sekundær { background: transparent; color: var(--tekst-farve); }
-        .knap:disabled { opacity: 0.4; cursor: default; }
-        .forslag {
-            position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 5;
-            margin: 0; padding: 0; list-style: none;
-            max-height: min(50vh, 320px); overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
-            background: var(--baggrunds-farve); border: 2px solid var(--tekst-farve); border-radius: 6px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-        }
-        .forslag[hidden] { display: none; }
-        .forslag li {
-            min-height: 44px; box-sizing: border-box; padding: 8px 12px; cursor: pointer;
-            display: flex; flex-direction: column; justify-content: center;
-            border-bottom: 1px solid var(--linje);
-        }
-        .forslag li:last-child { border-bottom: none; }
-        .forslag li b { font-size: 1rem; }
-        .forslag li small { color: var(--dæmpet); font-size: 0.8rem; margin-top: 2px; }
-        .forslag li.aktiv, .forslag li:hover { background: var(--tekst-farve); color: var(--baggrunds-farve); }
-        .forslag li.aktiv small, .forslag li:hover small { color: #555; }
-        .forslag li.gættet { opacity: 0.35; cursor: default; text-decoration: line-through; }
-        .forslag li.gættet:hover { background: none; color: inherit; }
-        .forslag .tom { color: var(--dæmpet); cursor: default; }
-        .fejl { color: var(--advarsel); min-height: 1.4em; margin: 0 0 8px; font-size: 0.95rem; }
-
-        .ledetråde { margin: 8px 0 20px; padding: 12px 14px; border: 1px dashed var(--linje); border-radius: 6px; color: var(--dæmpet); font-size: 0.95rem; }
-        .ledetråde strong { color: var(--tekst-farve); }
-        .ledetråde p { margin: 4px 0; }
-
-        .gæt { margin-bottom: 16px; }
-        .gæt.ny { animation: ind 0.3s ease-out; }
-        @keyframes ind { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-        .gæt-hoved { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
-        .gæt-navn { font-weight: bold; font-size: 1.1rem; }
         .atc-match { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--dæmpet); white-space: nowrap; }
         .atc-match .bjælke { display: flex; gap: 2px; }
         .atc-match .bjælke i { width: 10px; height: 10px; border-radius: 2px; background: var(--grå); }
         .atc-match .bjælke i.på { background: var(--grøn); }
-
-        .felter { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-        .felt-boks {
-            border-radius: 6px; padding: 8px; min-height: 58px;
-            background: var(--grå); color: #fff;
-            display: flex; flex-direction: column; justify-content: space-between;
-            overflow-wrap: break-word; hyphens: auto;
-        }
-        .felt-boks small { font-size: 0.68rem; opacity: 0.85; text-transform: uppercase; letter-spacing: 0.04em; }
-        .felt-boks span { font-size: 0.8rem; font-weight: bold; line-height: 1.2; }
-        .felt-boks.grøn { background: var(--grøn); }
-        .felt-boks.gul { background: var(--gul); }
-        .felt-boks small::before { margin-right: 4px; }
-        .felt-boks.grøn small::before { content: '✓'; }
-        .felt-boks.gul small::before { content: '≈'; }
-        .felt-boks.grå small::before { content: '✗'; }
-
-        .slut { margin: 24px 0; padding: 16px; border: 2px solid var(--tekst-farve); border-radius: 8px; }
-        .slut h2 { margin: 0 0 8px; }
-        .slut table { margin: 12px 0; }
-        .knapper { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
-
-        .statistik { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; text-align: center; margin-top: 16px; }
-        .statistik b { display: block; font-size: 1.6rem; }
-        .statistik span { font-size: 0.75rem; color: var(--dæmpet); }
-
-        .regler summary { cursor: pointer; font-weight: bold; }
-        .regler { margin-top: 28px; color: var(--dæmpet); line-height: 1.5; }
-        .farve { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: middle; }
     </style>
 </head>
 <body class="beregner">
@@ -128,59 +46,30 @@
             <p><span class="farve" style="background:var(--grøn)"></span> ✓ samme &nbsp; <span class="farve" style="background:var(--gul)"></span> ≈ tæt på / delvist overlap &nbsp; <span class="farve" style="background:var(--grå)"></span> ✗ forskellig</p>
             <p><strong>Område</strong>: ATC-niveau 1 (fx C = hjerte-kar). <strong>Gruppe</strong>: ATC-niveau 3 – gul hvis niveau 2 er ens. <strong>Klasse</strong>: virkningsmekanisme. <strong>Brug</strong> og <strong>Form</strong>: gul ved delvist overlap. <strong>Status</strong>: håndkøb, receptpligtig eller afhængighedsskabende. <strong>ATC-bjælken</strong> viser, hvor mange af ATC-kodens 5 niveauer der matcher.</p>
             <p>Efter 3 gæt får du en beskrivelse, og efter 5 gæt forbogstavet. Der kommer et nyt lægemiddel hver dag ved midnat. Med “Øv dig” kan du spille så mange runder du vil.</p>
+            <p id="kilde-linje"></p>
             <p>Spillet er til sjov og læring – ikke en klinisk opslagskilde.</p>
         </details>
     </main>
 
     <script>
         const MAKS_GÆT = 6;
-        const DAG = 86400000;
 
-        // ---------- Hjælpere ----------
-        const norm = s => s.toLowerCase().normalize('NFC').replace(/[\s\-\.\/+()]/g, '');
+        // Flet handelsnavne og former fra Lægemiddelstyrelsen ind (pilledle-officiel.js, genereret af tools/opdater_pilledle.py)
+        if (typeof OFFICIEL !== 'undefined') {
+            for (const p of PRÆPARATER) {
+                const o = OFFICIEL.data[p.atc];
+                if (!o) continue;
+                const set = new Set(p.mærker.map(m => m.toLowerCase()));
+                for (const m of o.mærker) if (!set.has(m.toLowerCase())) { set.add(m.toLowerCase()); p.mærker.push(m); }
+                if (o.former.length) p.former = o.former.slice();
+            }
+            document.getElementById('kilde-linje').innerHTML =
+                'Handelsnavne og former: <a href="https://laegemiddelstyrelsen.dk/en/sideeffects/find-medicines/lists-with-information-about-medicines" target="_blank" rel="noopener">Lægemiddelstyrelsens liste over godkendte lægemidler</a>, markedsførte præparater, opdateret ' + OFFICIEL.opdateret + '.';
+        }
+        const dagensPræparat = nøgle => dagensElement(PRÆPARATER, 20261119, nøgle);
 
-        function lager(nøgle, værdi) {
-            try {
-                if (værdi === undefined) return JSON.parse(localStorage.getItem(nøgle));
-                localStorage.setItem(nøgle, JSON.stringify(værdi));
-            } catch (e) { return null; }
-        }
-
-        function datoNøgle(d = new Date()) {
-            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-        }
-
-        // Fast blandet rækkefølge, så dagens opgave ikke følger alfabetet
-        function blandet(liste, frø) {
-            const r = liste.slice();
-            let s = frø >>> 0;
-            const tilfældig = () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; };
-            for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(tilfældig() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; }
-            return r;
-        }
-        const RÆKKEFØLGE = blandet(PRÆPARATER, 20261119);
-
-        function dagsNummer(nøgle) {
-            const [å, m, d] = nøgle.split('-').map(Number);
-            return Math.round((Date.UTC(å, m - 1, d) - Date.UTC(2026, 0, 1)) / DAG);
-        }
-        function dagensPræparat(nøgle) {
-            const n = RÆKKEFØLGE.length;
-            return RÆKKEFØLGE[((dagsNummer(nøgle) % n) + n) % n];
-        }
-
-        // Navneopslag: generisk navn og alle handelsnavne
-        const OPSLAG = new Map();
-        for (const p of PRÆPARATER) {
-            OPSLAG.set(norm(p.navn), p);
-            for (const m of p.mærker) if (!OPSLAG.has(norm(m))) OPSLAG.set(norm(m), p);
-        }
-        function find(tekst) {
-            const t = tekst.trim();
-            const m = t.match(/\(([^)]+)\)\s*$/);         // "Panodil (Paracetamol)"
-            if (m && OPSLAG.has(norm(m[1]))) return OPSLAG.get(norm(m[1]));
-            return OPSLAG.get(norm(t)) || null;
-        }
+        // Navneopslag (generisk navn og alle handelsnavne) sker i forslagslisten – se lavForslag nederst
+        let find = tekst => forslag.find(tekst);
 
         // ---------- Sammenligning ----------
         function atcNiveauer(a, b) {
@@ -220,9 +109,7 @@
             for (const navn of gemt) { const p = find(navn); if (p) registrér(p, false); }
         }
         function nytØvespil() {
-            let svar;
-            do { svar = PRÆPARATER[Math.floor(Math.random() * PRÆPARATER.length)]; } while (spil && svar === spil.svar);
-            spil = { tilstand: 'øv', svar, gæt: [], slut: null };
+            spil = { tilstand: 'øv', svar: tilfældigtAndet(PRÆPARATER, spil && spil.svar), gæt: [], slut: null };
         }
 
         function registrér(p, gem = true) {
@@ -231,26 +118,8 @@
             else if (spil.gæt.length >= MAKS_GÆT) spil.slut = 'tabt';
             if (gem && spil.tilstand === 'dag') {
                 lager('pilledle-' + iDag, spil.gæt);
-                if (spil.slut) opdatérStatistik();
+                if (spil.slut) registrérResultat('pilledle', iDag, spil.slut === 'vundet', spil.gæt.length);
             }
-        }
-
-        function opdatérStatistik() {
-            const st = lager('pilledle-stats') || { spillet: 0, vundet: 0, stime: 0, bedste: 0, sidste: null, fordeling: [0, 0, 0, 0, 0, 0] };
-            if (st.sidste === iDag) return;
-            const igår = datoNøgle(new Date(Date.now() - DAG));
-            st.spillet++;
-            if (spil.slut === 'vundet') {
-                st.vundet++;
-                st.fordeling[spil.gæt.length - 1]++;
-                st.stime = st.sidsteVundet === igår ? st.stime + 1 : 1;
-                st.sidsteVundet = iDag;
-                st.bedste = Math.max(st.bedste, st.stime);
-            } else {
-                st.stime = 0;
-            }
-            st.sidste = iDag;
-            lager('pilledle-stats', st);
         }
 
         // ---------- Visning ----------
@@ -306,22 +175,9 @@
                 '<button class="knap sekundær" id="øv">' + (spil.tilstand === 'dag' ? 'Øv dig med en ny' : 'Ny øverunde') + '</button>' +
                 (spil.tilstand === 'øv' ? '<button class="knap sekundær" id="tilbage">Tilbage til dagens</button>' : '') +
                 '</div>';
-            if (spil.tilstand === 'dag') {
-                const st = lager('pilledle-stats');
-                if (st) {
-                    html += '<div class="statistik">' +
-                        '<div><b>' + st.spillet + '</b><span>Spillet</span></div>' +
-                        '<div><b>' + Math.round(100 * st.vundet / Math.max(st.spillet, 1)) + '</b><span>% vundet</span></div>' +
-                        '<div><b>' + st.stime + '</b><span>Stime</span></div>' +
-                        '<div><b>' + st.bedste + '</b><span>Bedste stime</span></div></div>';
-                }
-            }
+            if (spil.tilstand === 'dag') html += statistikHTML('pilledle');
             $('slut').innerHTML = html + '</div>';
-            $('del').onclick = async () => {
-                const tekst = delTekst();
-                try { await navigator.clipboard.writeText(tekst); $('del').textContent = 'Kopieret ✓'; }
-                catch (e) { prompt('Kopiér dit resultat:', tekst); }
-            };
+            delKnap($('del'), delTekst);
             $('øv').onclick = () => { nytØvespil(); vis(); };
             if ($('tilbage')) $('tilbage').onclick = () => { nytDagsspil(); vis(); };
         }
@@ -336,92 +192,16 @@
         }
 
         // ---------- Input ----------
-        // Forslag sorteret efter hvor godt de matcher, hver gruppe alfabetisk. Tom tekst = alle.
-        function filtrér(tekst) {
-            const t = norm(tekst);
-            const alfabetisk = (a, b) => a.navn.localeCompare(b.navn, 'da');
-            if (!t) return PRÆPARATER.slice().sort(alfabetisk);
-            // 0: generisk navn starter med teksten, 1: handelsnavn starter med, 2: indeholder
-            const grupper = [[], [], []];
-            for (const p of PRÆPARATER) {
-                const mærker = p.mærker.map(norm);
-                if (norm(p.navn).startsWith(t)) grupper[0].push(p);
-                else if (mærker.some(n => n.startsWith(t))) grupper[1].push(p);
-                else if ([norm(p.navn), ...mærker].some(n => n.includes(t))) grupper[2].push(p);
-            }
-            return grupper.flatMap(g => g.sort(alfabetisk));
-        }
-
-        const felt = $('gæt-input'), liste = $('forslag');
-        let synlige = [], aktiv = -1;
-
-        function visForslag() {
-            if (spil.slut) return lukForslag();
-            synlige = filtrér(felt.value);
-            aktiv = -1;
-            liste.innerHTML = synlige.length
-                ? synlige.map((p, i) => {
-                    const mærker = p.mærker.filter(m => norm(m) !== norm(p.navn));
-                    const gættet = spil.gæt.includes(p.navn);
-                    return '<li id="forslag-' + i + '" role="option" data-i="' + i + '"' + (gættet ? ' class="gættet" aria-disabled="true"' : '') + '>' +
-                        '<b>' + p.navn + '</b>' + (mærker.length ? '<small>' + mærker.join(' · ') + '</small>' : '') + '</li>';
-                }).join('')
-                : '<li class="tom">Ingen lægemidler matcher</li>';
-            liste.hidden = false;
-            liste.scrollTop = 0;
-            felt.setAttribute('aria-expanded', 'true');
-            felt.removeAttribute('aria-activedescendant');
-        }
-        function lukForslag() {
-            liste.hidden = true;
-            aktiv = -1;
-            felt.setAttribute('aria-expanded', 'false');
-            felt.removeAttribute('aria-activedescendant');
-        }
-        function markér(i) {
-            const rækker = liste.querySelectorAll('li[role="option"]');
-            if (!rækker.length) return;
-            aktiv = (i + rækker.length) % rækker.length;
-            rækker.forEach((r, j) => r.classList.toggle('aktiv', j === aktiv));
-            rækker[aktiv].scrollIntoView({ block: 'nearest' });
-            felt.setAttribute('aria-activedescendant', rækker[aktiv].id);
-        }
-
-        function gæt(p) {
-            if (spil.slut) return;
-            if (!p) { $('fejl').textContent = 'Kender ikke “' + felt.value.trim() + '” – vælg fra listen.'; return; }
-            if (spil.gæt.includes(p.navn)) { $('fejl').textContent = 'Du har allerede gættet ' + p.navn + '.'; return; }
-            registrér(p);
-            felt.value = '';
-            lukForslag();
-            felt.blur();          // skjul tastaturet på mobil, så ledetrådene kan ses
-            vis();
-        }
-
-        felt.addEventListener('focus', () => {
-            visForslag();
-            setTimeout(() => $('søg').scrollIntoView({ block: 'start', behavior: 'smooth' }), 300);
-        });
-        felt.addEventListener('input', () => { $('fejl').textContent = ''; visForslag(); });
-        felt.addEventListener('blur', () => setTimeout(lukForslag, 150));
-        felt.addEventListener('keydown', e => {
-            if (e.key === 'ArrowDown') { e.preventDefault(); if (liste.hidden) visForslag(); markér(aktiv + 1); }
-            else if (e.key === 'ArrowUp') { e.preventDefault(); markér(aktiv - 1); }
-            else if (e.key === 'Escape') lukForslag();
-        });
-        // pointerdown + preventDefault: feltet mister ikke fokus før valget registreres
-        liste.addEventListener('pointerdown', e => e.preventDefault());
-        liste.addEventListener('click', e => {
-            const li = e.target.closest('li[role="option"]');
-            if (!li || li.classList.contains('gættet')) return;
-            gæt(synlige[Number(li.dataset.i)]);
-        });
-
-        $('gæt-form').addEventListener('submit', e => {
-            e.preventDefault();
-            if (!liste.hidden && aktiv >= 0) return gæt(synlige[aktiv]);
-            if (!felt.value.trim()) return;
-            gæt(find(felt.value));
+        const forslag = lavForslag({
+            felt: $('gæt-input'), liste: $('forslag'), form: $('gæt-form'), boks: $('søg'),
+            elementer: PRÆPARATER,
+            navn: p => p.navn,
+            aliaser: p => p.mærker,
+            deaktiveret: p => spil.gæt.includes(p.navn),
+            låst: () => !!spil.slut,
+            fejl: t => { $('fejl').textContent = t; },
+            ingen: 'Ingen lægemidler matcher',
+            vælg: p => { registrér(p); vis(); },
         });
 
         nytDagsspil();

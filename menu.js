@@ -16,7 +16,14 @@
             ['termin.html', 'Terminsberegner'],
             ['mdi.html', 'MDI (depression)'],
         ]},
-        { gruppe: 'Spil', links: [['pilledle.html', 'Pilledle – gæt lægemidlet']] },
+        { gruppe: 'Spil', links: [
+            ['pilledle.html', 'Pilledle – gæt lægemidlet'],
+            ['diagnosedle.html', 'Diagnosedle – stil diagnosen'],
+            ['firklover.html', 'Firkløver – find grupperne'],
+            ['skurken.html', 'Hvem er skurken? – bivirkninger'],
+            ['kombi.html', 'Farlig kombi? – interaktioner'],
+            ['dosering.html', 'Doseringsdyst – ram dosis'],
+        ]},
     ];
 
     const her = location.pathname.split('/').pop() || 'index.html';

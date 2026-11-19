@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Farlig kombi?</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="spil.css">
+    <script src="menu.js" defer></script>
+    <script src="spil.js"></script>
+    <script src="kombi-data.js"></script>
+    <style>
+        .ur { display: flex; justify-content: space-between; align-items: center; margin: 8px 0 12px; font-weight: bold; }
+        .ur .tid { font-size: 1.6rem; font-variant-numeric: tabular-nums; }
+        .tidsbjælke { height: 6px; background: var(--grå); border-radius: 3px; overflow: hidden; margin-bottom: 18px; }
+        .tidsbjælke i { display: block; height: 100%; background: var(--tekst-farve); transition: width 0.2s linear; }
+        .kort {
+            border: 2px solid var(--tekst-farve); border-radius: 12px; padding: 22px 16px;
+            text-align: center; min-height: 150px; display: flex; flex-direction: column; justify-content: center; gap: 8px;
+            transition: background 0.15s;
+        }
+        .kort .navn { font-size: 1.5rem; font-weight: bold; overflow-wrap: anywhere; }
+        .kort .plus { font-size: 1.2rem; color: var(--dæmpet); }
+        .kort.rigtigt { background: var(--grøn); border-color: var(--grøn); }
+        .kort.forkert { background: var(--rød); border-color: var(--rød); }
+        .kort .forklaring { font-size: 0.95rem; line-height: 1.4; }
+        .svar { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+        .svar .knap { padding: 18px 10px; font-size: 1.15rem; }
+        .svar .ok { background: var(--grøn); border-color: var(--grøn); color: #fff; }
+        .svar .farlig { background: var(--rød); border-color: var(--rød); color: #fff; }
+        .start { text-align: center; padding: 20px 0; }
+        .start p { color: var(--dæmpet); }
+        .fejlliste { list-style: none; padding: 0; margin: 12px 0 0; }
+        .fejlliste li { padding: 10px 0; border-bottom: 1px solid var(--linje); }
+        .fejlliste b { display: block; }
+        .fejlliste span { color: var(--dæmpet); font-size: 0.9rem; }
+        .mærkat { display: inline-block; font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; margin-left: 6px; color: #fff; vertical-align: middle; }
+        .mærkat.farlig { background: var(--rød); } .mærkat.ok { background: var(--grøn); }
+        .stortal { font-size: 3rem; font-weight: bold; margin: 0; }
+        kbd { border: 1px solid var(--linje); border-radius: 4px; padding: 0 5px; font-size: 0.85em; }
+    </style>
+</head>
+<body class="beregner">
+    <main>
+        <div class="spil-top"><h1>Farlig kombi?</h1></div>
+        <p class="undertitel">Er de to lægemidler OK sammen, eller er kombinationen farlig? Svar på så mange som muligt på 60 sekunder.</p>
+
+        <div id="skærm"></div>
+
+        <details class="regler">
+            <summary>Sådan spiller du</summary>
+            <p>Tryk <strong>OK</strong> eller <strong>Farlig</strong> (eller brug <kbd>←</kbd> / <kbd>→</kbd> på tastaturet). Rigtigt svar giver 1 point. Ved forkert svar vises forklaringen, og uret står stille imens.</p>
+            <p>“Farlig” betyder, at kombinationen bør undgås eller kræver særlig forsigtighed. Kun klare lærebogseksempler er med.</p>
+            <p>Spillet er til sjov og læring – ikke en klinisk opslagskilde. Tjek altid interaktioner i fx interaktionsdatabasen.dk.</p>
+        </details>
+    </main>
+
+    <script>
+        const VARIGHED = 60;           // sekunder
+        const FORKLARINGSTID = 2500;   // ms uret står stille ved forkert svar
+        const $ = id => document.getElementById(id);
+        let runde = null;
+
+        function startSkærm() {
+            const rekord = lager('kombi-rekord') || 0;
+            $('skærm').innerHTML = '<div class="start"><p>' + KOMBINATIONER.length + ' kombinationer i spil.' +
+                (rekord ? ' Din rekord: <strong>' + rekord + '</strong> point.' : '') + '</p>' +
+                '<button class="knap" id="start" type="button">Start (60 sek.)</button></div>';
+            $('start').onclick = start;
+        }
+
+        function start() {
+            runde = { kø: blandet(KOMBINATIONER), i: 0, point: 0, forkerte: [], tilbage: VARIGHED * 1000, sidst: performance.now(), pause: false, låst: false };
+            $('skærm').innerHTML =
+                '<div class="ur"><span>Point: <span id="point">0</span></span><span class="tid" id="tid">60</span></div>' +
+                '<div class="tidsbjælke"><i id="bjælke" style="width:100%"></i></div>' +
+                '<div class="kort" id="kort"></div>' +
+                '<div class="svar"><button class="knap ok" id="ok" type="button">OK</button><button class="knap farlig" id="farlig" type="button">Farlig</button></div>';
+            $('ok').onclick = () => svar(false);
+            $('farlig').onclick = () => svar(true);
+            visPar();
+            requestAnimationFrame(tik);
+        }
+
+        function aktuelt() {
+            if (runde.i >= runde.kø.length) { runde.kø = runde.kø.concat(blandet(KOMBINATIONER)); }
+            return runde.kø[runde.i];
+        }
+
+        function visPar() {
+            const p = aktuelt();
+            // Tilfældig rækkefølge af de to navne
+            const [x, y] = Math.random() < 0.5 ? [p.a, p.b] : [p.b, p.a];
+            $('kort').className = 'kort';
+            $('kort').innerHTML = '<span class="navn">' + x + '</span><span class="plus">+</span><span class="navn">' + y + '</span>';
+        }
+
+        function svar(sagdeFarlig) {
+            if (!runde || runde.låst) return;
+            const p = aktuelt();
+            runde.låst = true;
+            if (sagdeFarlig === p.farlig) {
+                runde.point++;
+                $('point').textContent = runde.point;
+                $('kort').classList.add('rigtigt');
+                setTimeout(næste, 250);
+            } else {
+                runde.forkerte.push(p);
+                runde.pause = true;
+                $('kort').className = 'kort forkert';
+                $('kort').innerHTML = '<strong>' + p.a + ' + ' + p.b + ' er ' + (p.farlig ? 'FARLIG' : 'OK') + '</strong><span class="forklaring">' + p.forklaring + '</span>';
+                setTimeout(() => { runde.pause = false; runde.sidst = performance.now(); næste(); }, FORKLARINGSTID);
+            }
+        }
+
+        function næste() {
+            if (!runde || runde.tilbage <= 0) return;
+            runde.i++;
+            runde.låst = false;
+            visPar();
+        }
+
+        function tik(nu) {
+            if (!runde) return;
+            if (!runde.pause) {
+                runde.tilbage -= nu - runde.sidst;
+            }
+            runde.sidst = nu;
+            const s = Math.max(0, runde.tilbage / 1000);
+            $('tid').textContent = Math.ceil(s);
+            $('bjælke').style.width = (100 * s / VARIGHED) + '%';
+            if (runde.tilbage <= 0 && !runde.pause) return slut();
+            requestAnimationFrame(tik);
+        }
+
+        function slut() {
+            const r = runde;
+            runde = null;
+            const rekord = lager('kombi-rekord') || 0;
+            const ny = r.point > rekord;
+            if (ny) lager('kombi-rekord', r.point);
+            const besvaret = r.point + r.forkerte.length;
+            $('skærm').innerHTML = '<div class="slut"><p class="stortal">' + r.point + ' point</p>' +
+                '<p>' + (ny ? '🏆 Ny rekord!' : 'Rekord: ' + Math.max(rekord, r.point) + ' point') + ' · ' + besvaret + ' besvaret, ' + r.forkerte.length + ' forkerte</p>' +
+                (r.forkerte.length ? '<h2>Dem du fik galt</h2><ul class="fejlliste">' + r.forkerte.map(p =>
+                    '<li><b>' + p.a + ' + ' + p.b + '<span class="mærkat ' + (p.farlig ? 'farlig">Farlig' : 'ok">OK') + '</span></b><span>' + p.forklaring + '</span></li>'
+                ).join('') + '</ul>' : '<p>Ingen fejl – flot! 💊</p>') +
+                '<div class="knapper"><button class="knap" id="igen" type="button">Spil igen</button><button class="knap sekundær" id="del" type="button">Del resultat</button></div></div>';
+            $('igen').onclick = start;
+            delKnap($('del'), 'Farlig kombi? ' + r.point + ' point på 60 sekunder 💊');
+        }
+
+        document.addEventListener('keydown', e => {
+            if (!runde) return;
+            if (e.key === 'ArrowLeft') svar(false);
+            else if (e.key === 'ArrowRight') svar(true);
+        });
+
+        startSkærm();
+    </script>
+</body>
+</html>

@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doseringsdyst</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="spil.css">
+    <script src="menu.js" defer></script>
+    <script src="beregn.js"></script>
+    <script src="spil.js"></script>
+    <style>
+        .runder { display: flex; gap: 6px; margin: 4px 0 16px; }
+        .runder i { flex: 1; height: 8px; border-radius: 4px; background: var(--grå); }
+        .runder i.aktiv { background: var(--tekst-farve); }
+        .runder i.r100 { background: var(--grøn); } .runder i.rdel { background: var(--gul); } .runder i.r0 { background: var(--rød); }
+        .patient { border: 2px solid var(--tekst-farve); border-radius: 10px; padding: 16px; }
+        .patient .hvem { font-size: 1.25rem; font-weight: bold; margin: 0 0 6px; }
+        .patient .spm { margin: 10px 0 0; font-size: 1.05rem; line-height: 1.4; }
+        .svarfelt { display: flex; gap: 8px; align-items: center; margin: 18px 0 8px; }
+        .svarfelt input[type="number"] { flex: 1; min-width: 0; font-size: 1.5rem; padding: 10px 12px; border: 2px solid var(--tekst-farve); border-radius: 6px; background: var(--baggrunds-farve); color: var(--tekst-farve); font-family: inherit; }
+        .svarfelt .enhed { font-size: 1.2rem; font-weight: bold; min-width: 2.5em; }
+        input[type="range"] { width: 100%; margin: 6px 0 12px; accent-color: var(--tekst-farve); }
+        .resultat-boks { margin-top: 16px; padding: 14px; border-radius: 8px; background: var(--grå); animation: ind 0.3s ease-out; }
+        .resultat-boks.r100 { background: var(--grøn); } .resultat-boks.rdel { background: #6b5e22; } .resultat-boks.r0 { background: #6b2a25; }
+        .resultat-boks p { margin: 6px 0; }
+        .resultat-boks a { color: #fff; }
+        .advarsel { font-weight: bold; color: var(--advarsel); }
+        .stortal { font-size: 3rem; font-weight: bold; margin: 0; }
+        .oversigt { width: 100%; border-collapse: collapse; margin-top: 12px; }
+        .oversigt td, .oversigt th { padding: 8px 4px; border-bottom: 1px solid var(--linje); text-align: left; font-size: 0.9rem; }
+    </style>
+</head>
+<body class="beregner">
+    <main>
+        <div class="spil-top">
+            <h1>Doseringsdyst</h1>
+            <span class="tilstand" id="tilstand"></span>
+        </div>
+        <p class="undertitel">5 børn, 5 recepter. Ram den anbefalede dosis – 100 point pr. patient.</p>
+
+        <div id="skærm"></div>
+
+        <details class="regler">
+            <summary>Sådan spiller du</summary>
+            <p>Du får et barn med vægt og et spørgsmål om dosis. Svar i mg eller ml. Ligger dit svar inden for det anbefalede interval, får du 100 point; uden for falder pointene, jo længere du er fra intervallet (0 point ved 50 % afvigelse).</p>
+            <p>Doseringerne er de samme som i site'ets beregnere: paracetamol 50–60 mg/kg/døgn ÷ 4 (Panodil Junior 24 mg/ml), ibuprofen 5–7,5 mg/kg pr. dosis (20 mg/ml), og antibiotika efter den officielle børnedoseringstabel (50 mg/ml, clarithromycin 25 eller 50 mg/ml). For antibiotika godtages ±10 % af den beregnede dosis.</p>
+            <p>Samme 5 patienter for alle hver dag. Spillet er til sjov og træning – brug beregnerne og gældende vejledninger i klinikken.</p>
+        </details>
+    </main>
+
+    <script>
+        const RUNDER = 5;
+        const $ = id => document.getElementById(id);
+        const iDag = datoNøgle();
+        const NAVNE = { pige: ['Ida', 'Freja', 'Emma', 'Alma', 'Clara', 'Karla', 'Ella', 'Agnes'], dreng: ['Noah', 'Oscar', 'William', 'Carl', 'Alfred', 'Valdemar', 'Arthur', 'Malthe'] };
+
+        // Omtrentlig vægt for alder (år) – nok til realistiske patienter
+        function vægtForAlder(år, r) {
+            const gns = år < 1 ? 6 + år * 4 : år <= 10 ? 2 * år + 8 : 3 * år;
+            return Math.round(gns * (0.85 + r() * 0.3) * 2) / 2;      // ±15 %, halve kg
+        }
+
+        // Spørgsmålstyper: hver giver { tekst, enhed, min, max, forklaring, link, maks }
+        const TYPER = [
+            { navn: 'paracetamol-ml', alder: [0.5, 8], lav(kg) {
+                const d = paracetamolDosis(kg);
+                return { spm: 'har feber og ondt. Hvor mange <b>ml Panodil Junior 24 mg/ml</b> pr. dosis (4 gange i døgnet)?', enhed: 'ml', min: d.mlMin, max: d.mlMax,
+                    forklaring: tal(kg, 1) + ' kg × 12,5–15 mg/kg = ' + tal(d.mgMin, 0, 'rund') + '–' + tal(d.mgMax, 0, 'rund') + ' mg ÷ 24 mg/ml = ' + tal(d.mlMin, 1, 'rund') + '–' + tal(d.mlMax, 1, 'rund') + ' ml', link: 'panodil.html' };
+            }},
+            { navn: 'paracetamol-mg', alder: [2, 11], lav(kg) {
+                const d = paracetamolDosis(kg);
+                return { spm: 'har ondt efter et fald. Hvor mange <b>mg paracetamol</b> pr. dosis (4 gange i døgnet)?', enhed: 'mg', min: d.mgMin, max: d.mgMax,
+                    forklaring: tal(kg, 1) + ' kg × 50–60 mg/kg/døgn ÷ 4 = ' + tal(d.mgMin, 0, 'rund') + '–' + tal(d.mgMax, 0, 'rund') + ' mg', link: 'panodil.html' };
+            }},
+            { navn: 'ibuprofen-ml', alder: [1, 10], lav(kg) {
+                const d = ibuprofenDosis(kg);
+                return { spm: 'har ondt i øret. Hvor mange <b>ml ibuprofen-mikstur 20 mg/ml</b> pr. dosis?', enhed: 'ml', min: d.mlMin, max: d.mlMax,
+                    forklaring: tal(kg, 1) + ' kg × 5–7,5 mg/kg = ' + tal(d.mgMin, 0, 'rund') + '–' + tal(d.mgMax, 0, 'rund') + ' mg ÷ 20 mg/ml = ' + tal(d.mlMin, 1, 'rund') + '–' + tal(d.mlMax, 1, 'rund') + ' ml', link: 'ibuprofen.html' };
+            }},
+            { navn: 'pcv-ml', alder: [1, 9], lav(kg) { return antibiotikaSpm('pcv', kg, 'har halsbetændelse med positiv Strep A-test. Hvor mange <b>ml penicillin V-mikstur 50 mg/ml</b> pr. dosis (3 gange dagligt)?'); }},
+            { navn: 'amox-ml', alder: [1, 9], lav(kg) { return antibiotikaSpm('amox', kg, 'har lungebetændelse. Hvor mange <b>ml amoxicillin-mikstur 50 mg/ml</b> pr. dosis (3 gange dagligt)?'); }},
+            { navn: 'clari-ml', alder: [3, 9], lav(kg) { return antibiotikaSpm('clari', kg, 'har penicillinallergi og lungebetændelse. Hvor mange <b>ml clarithromycin-mikstur 50 mg/ml</b> pr. dosis (2 gange dagligt)?', 50); }},
+        ];
+
+        function antibiotikaSpm(middel, kg, spm, styrke) {
+            const d = antibiotikaDosis(middel, kg);
+            const ml = d.ml.find(x => !styrke || x.styrke === styrke) || d.ml[0];
+            const m = d.middel;
+            return { spm, enhed: 'ml', min: ml.dosis * 0.9, max: ml.dosis * 1.1, mål: ml.dosis,
+                forklaring: tal(kg, 1) + ' kg × ' + m.mgPrKg + ' mg/kg/døgn = ' + tal(d.døgn) + ' mg/døgn ÷ ' + m.doser + ' = ' + tal(d.dosis) + ' mg ÷ ' + ml.styrke + ' mg/ml ≈ ' + tal(ml.dosis, 1, 'rund') + ' ml', link: 'antibiotika.html' };
+        }
+
+        function lavPatienter(r) {
+            const typer = blandet(TYPER, r).concat(blandet(TYPER, r)).slice(0, RUNDER);
+            return typer.map(type => {
+                const [a, b] = type.alder;
+                const år = Math.round((a + r() * (b - a)) * 2) / 2;
+                let kg = vægtForAlder(år, r);
+                if (type.navn === 'ibuprofen-ml') kg = Math.max(kg, 8);
+                if (type.navn === 'clari-ml') kg = Math.max(kg, 13);            // 50 mg/ml-styrke
+                kg = Math.min(Math.max(kg, 6), 30);
+                const køn = r() < 0.5 ? 'pige' : 'dreng';
+                const navn = NAVNE[køn][Math.floor(r() * NAVNE[køn].length)];
+                const alderTekst = år < 1 ? Math.round(år * 12) + ' måneder' : tal(år, 1, 'rund') + ' år';
+                return { navn, køn, alderTekst, kg, ...type.lav(kg) };
+            });
+        }
+
+        function point(svar, p) {
+            if (svar >= p.min - 1e-9 && svar <= p.max + 1e-9) return 100;
+            const kant = svar < p.min ? p.min : p.max;
+            const afvigelse = Math.abs(svar - kant) / kant;
+            return Math.max(0, Math.round(100 * (1 - afvigelse / 0.5)));
+        }
+        const klasse = pt => pt === 100 ? 'r100' : pt > 0 ? 'rdel' : 'r0';
+
+        let spil;
+        function nytSpil(tilstand) {
+            const r = tilstand === 'dag' ? rng(dagsNummer(iDag) * 7919 + 13) : Math.random;
+            spil = { tilstand, patienter: lavPatienter(r), svar: [], visResultat: false };
+            if (tilstand === 'dag') {
+                const gemt = lager('dosering-' + iDag);
+                if (gemt) spil.svar = gemt;
+            }
+            vis();
+        }
+
+        function gemDag() {
+            if (spil.tilstand !== 'dag') return;
+            lager('dosering-' + iDag, spil.svar);
+            if (spil.svar.length === RUNDER) {
+                const st = lager('dosering-stats') || { spillet: 0, sum: 0, bedste: 0, sidste: null };
+                if (st.sidste !== iDag) {
+                    const total = samlet();
+                    st.spillet++; st.sum += total; st.bedste = Math.max(st.bedste, total); st.sidste = iDag;
+                    lager('dosering-stats', st);
+                }
+            }
+        }
+        const samlet = () => spil.svar.reduce((s, x, i) => s + point(x, spil.patienter[i]), 0);
+
+        function runderHTML() {
+            return '<div class="runder">' + spil.patienter.map((p, i) =>
+                '<i class="' + (i < spil.svar.length ? klasse(point(spil.svar[i], p)) : i === spil.svar.length ? 'aktiv' : '') + '"></i>').join('') + '</div>';
+        }
+
+        function vis() {
+            $('tilstand').textContent = spil.tilstand === 'dag' ? 'Dagens: ' + iDag : 'Øverunde';
+            const i = spil.visResultat ? spil.svar.length - 1 : spil.svar.length;
+            if (i >= RUNDER) return visSlut();
+            const p = spil.patienter[i];
+            let html = runderHTML() + '<div class="patient"><p class="hvem">' + p.navn + ', ' + p.alderTekst + ', ' + tal(p.kg, 1) + ' kg</p>' +
+                '<p class="spm">' + p.navn + ' ' + p.spm + '</p></div>';
+            if (!spil.visResultat) {
+                const maks = Math.ceil(p.max * 2 / (p.enhed === 'ml' ? 1 : 10)) * (p.enhed === 'ml' ? 1 : 10);
+                const trin = p.enhed === 'ml' ? 0.1 : 5;
+                html += '<form id="svar-form"><div class="svarfelt"><input id="svar" type="number" inputmode="decimal" min="0" step="any" placeholder="Dit svar" aria-label="Dosis i ' + p.enhed + '"><span class="enhed">' + p.enhed + '</span></div>' +
+                    '<input id="skyder" type="range" min="0" max="' + maks + '" step="' + trin + '" value="0" aria-label="Vælg dosis">' +
+                    '<button class="knap" type="submit" id="send">Giv dosis</button></form>';
+                $('skærm').innerHTML = html;
+                const felt = $('svar'), skyder = $('skyder');
+                skyder.oninput = () => { felt.value = skyder.value; };
+                felt.oninput = () => { const v = parseFloat(felt.value.replace(',', '.')); if (!isNaN(v)) skyder.value = Math.min(v, maks); };
+                $('svar-form').onsubmit = e => {
+                    e.preventDefault();
+                    const v = parseFloat(String(felt.value).replace(',', '.'));
+                    if (isNaN(v) || v < 0) { felt.focus(); return; }
+                    spil.svar.push(v);
+                    spil.visResultat = true;
+                    gemDag();
+                    vis();
+                };
+            } else {
+                const v = spil.svar[i], pt = point(v, p);
+                const over = v > p.max + 1e-9;
+                html += '<div class="resultat-boks ' + klasse(pt) + '"><p><b>' + pt + ' point</b> – du gav ' + tal(v, 1, 'rund') + ' ' + p.enhed + '.</p>' +
+                    (over && v > p.max * 1.2 ? '<p class="advarsel">⚠️ Over maksimal dosis!</p>' : '') +
+                    '<p>Anbefalet: <b>' + tal(p.min, 1, 'rund') + '–' + tal(p.max, 1, 'rund') + ' ' + p.enhed + '</b></p>' +
+                    '<p style="font-size:0.9rem">' + p.forklaring + ' · <a href="' + p.link + '">Beregner</a></p></div>' +
+                    '<div class="knapper"><button class="knap" id="videre" type="button">' + (i + 1 < RUNDER ? 'Næste patient' : 'Se resultat') + '</button></div>';
+                $('skærm').innerHTML = html;
+                $('videre').onclick = () => { spil.visResultat = false; vis(); };
+            }
+        }
+
+        function visSlut() {
+            const total = samlet();
+            const emoji = spil.svar.map((v, i) => ({ r100: '🟩', rdel: '🟨', r0: '🟥' })[klasse(point(v, spil.patienter[i]))]).join('');
+            const st = spil.tilstand === 'dag' ? lager('dosering-stats') : null;
+            $('skærm').innerHTML = runderHTML() + '<div class="slut"><p class="stortal">' + total + ' / ' + RUNDER * 100 + '</p>' +
+                '<p>' + (total === 500 ? '💯 Perfekt dosering!' : total >= 400 ? 'Flot – sikker hånd med doseringen.' : total >= 250 ? 'Godt forsøgt – brug beregnerne til at øve dig.' : 'Tjek lige beregnerne igen 😉') + '</p>' +
+                '<table class="oversigt"><tr><th>Patient</th><th>Dit svar</th><th>Anbefalet</th><th>Point</th></tr>' +
+                spil.patienter.map((p, i) => '<tr><td>' + p.navn + ', ' + tal(p.kg, 1) + ' kg</td><td>' + tal(spil.svar[i], 1, 'rund') + ' ' + p.enhed + '</td><td>' +
+                    tal(p.min, 1, 'rund') + '–' + tal(p.max, 1, 'rund') + '</td><td>' + point(spil.svar[i], p) + '</td></tr>').join('') + '</table>' +
+                (st ? '<div class="statistik"><div><b>' + st.spillet + '</b><span>Spillet</span></div><div><b>' + Math.round(st.sum / Math.max(st.spillet, 1)) + '</b><span>Gennemsnit</span></div><div><b>' + st.bedste + '</b><span>Bedste</span></div><div><b>' + total + '</b><span>I dag</span></div></div>' : '') +
+                '<div class="knapper"><button class="knap" id="del" type="button">Del resultat</button>' +
+                '<button class="knap sekundær" id="øv" type="button">' + (spil.tilstand === 'dag' ? 'Øv dig med 5 nye' : 'Nye patienter') + '</button>' +
+                (spil.tilstand === 'øv' ? '<button class="knap sekundær" id="tilbage" type="button">Tilbage til dagens</button>' : '') + '</div></div>';
+            delKnap($('del'), 'Doseringsdyst ' + (spil.tilstand === 'dag' ? iDag : '(øverunde)') + ': ' + total + '/' + RUNDER * 100 + ' ' + emoji);
+            $('øv').onclick = () => nytSpil('øv');
+            if ($('tilbage')) $('tilbage').onclick = () => nytSpil('dag');
+        }
+
+        nytSpil('dag');
+    </script>
+</body>
+</html>

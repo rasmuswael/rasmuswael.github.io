@@ -31,9 +31,6 @@
 
     <script>
         const resultat = document.getElementById('resultat');
-        const MIXTUR_MG_PR_ML = 24;   // Panodil Junior oral suspension
-        const DOSER_PR_DOEGN = 4;
-
         function beregn() {
             const kg = læsTal('vaegt');
             if (isNaN(kg)) { resultat.innerHTML = ''; return; }
@@ -41,8 +38,8 @@
             if (document.getElementById('spaed').checked || kg < 5) {
                 return visBesked(resultat, 'Børn under 3 måneder eller under 5 kg skal have anden dosering. Se Lægehåndbogen (“Akutte smerter hos børn”) eller kontakt pædiater.');
             }
-
-            if (kg >= 50) {
+            const d = paracetamolDosis(kg);
+            if (d.voksen) {
                 return visTabel(resultat, [
                     ['Enkeltdosis', '500–1000 mg'],
                     ['Antal doser', '3–4 gange i døgnet'],
@@ -51,14 +48,12 @@
                     ['Tabletter (500 mg)', '1–2 tabletter pr. dosis'],
                 ]);
             }
-            const døgnMin = 50 * kg, døgnMax = 60 * kg;
-            const dosisMin = døgnMin / DOSER_PR_DOEGN, dosisMax = døgnMax / DOSER_PR_DOEGN;
             visTabel(resultat, [
-                ['Døgndosis', tal(døgnMin) + '–' + tal(døgnMax) + ' mg'],
-                ['Enkeltdosis (× 4)', tal(dosisMin) + '–' + tal(dosisMax) + ' mg'],
-                ['Panodil Junior 24 mg/ml', tal(dosisMin / MIXTUR_MG_PR_ML, 1) + '–' + tal(dosisMax / MIXTUR_MG_PR_ML, 1) + ' ml pr. dosis'],
+                ['Døgndosis', tal(d.døgnMin) + '–' + tal(d.døgnMax) + ' mg'],
+                ['Enkeltdosis (× 4)', tal(d.mgMin) + '–' + tal(d.mgMax) + ' mg'],
+                ['Panodil Junior 24 mg/ml', tal(d.mlMin, 1) + '–' + tal(d.mlMax, 1) + ' ml pr. dosis'],
                 ['Interval', 'Mindst 4 timer, 4 doser i døgnet'],
-                ['Maks. døgndosis', tal(døgnMax) + ' mg'],
+                ['Maks. døgndosis', tal(d.døgnMax) + ' mg'],
             ]);
         }
         bindAlle(beregn);
