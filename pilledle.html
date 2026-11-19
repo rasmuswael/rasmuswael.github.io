@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pilledle</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="menu.js" defer></script>
+    <script src="pilledle-data.js"></script>
+    <style>
+        :root {
+            --grøn: #538d4e;
+            --gul: #b59f3b;
+            --grå: #3a3a3c;
+        }
+        .spil-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+        .tilstand { color: var(--dæmpet); font-size: 0.95rem; }
+
+        .gæt-form { display: flex; gap: 8px; margin: 20px 0 8px; }
+        .gæt-form input {
+            flex: 1; min-width: 0;
+            font-size: 1.15rem; padding: 10px 12px;
+            border: 2px solid var(--tekst-farve); border-radius: 6px;
+            background: var(--baggrunds-farve); color: var(--tekst-farve); font-family: inherit;
+        }
+        .knap {
+            font: inherit; font-weight: bold; cursor: pointer;
+            padding: 10px 16px; border-radius: 6px;
+            border: 2px solid var(--tekst-farve);
+            background: var(--tekst-farve); color: var(--baggrunds-farve);
+        }
+        .knap.sekundær { background: transparent; color: var(--tekst-farve); }
+        .knap:disabled { opacity: 0.4; cursor: default; }
+        .fejl { color: var(--advarsel); min-height: 1.4em; margin: 0 0 8px; font-size: 0.95rem; }
+
+        .ledetråde { margin: 8px 0 20px; padding: 12px 14px; border: 1px dashed var(--linje); border-radius: 6px; color: var(--dæmpet); font-size: 0.95rem; }
+        .ledetråde strong { color: var(--tekst-farve); }
+        .ledetråde p { margin: 4px 0; }
+
+        .gæt { margin-bottom: 16px; }
+        .gæt.ny { animation: ind 0.3s ease-out; }
+        @keyframes ind { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+        .gæt-hoved { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
+        .gæt-navn { font-weight: bold; font-size: 1.1rem; }
+        .atc-match { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--dæmpet); white-space: nowrap; }
+        .atc-match .bjælke { display: flex; gap: 2px; }
+        .atc-match .bjælke i { width: 10px; height: 10px; border-radius: 2px; background: var(--grå); }
+        .atc-match .bjælke i.på { background: var(--grøn); }
+
+        .felter { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+        .felt-boks {
+            border-radius: 6px; padding: 8px; min-height: 58px;
+            background: var(--grå); color: #fff;
+            display: flex; flex-direction: column; justify-content: space-between;
+            overflow-wrap: break-word; hyphens: auto;
+        }
+        .felt-boks small { font-size: 0.68rem; opacity: 0.85; text-transform: uppercase; letter-spacing: 0.04em; }
+        .felt-boks span { font-size: 0.8rem; font-weight: bold; line-height: 1.2; }
+        .felt-boks.grøn { background: var(--grøn); }
+        .felt-boks.gul { background: var(--gul); }
+        .felt-boks small::before { margin-right: 4px; }
+        .felt-boks.grøn small::before { content: '✓'; }
+        .felt-boks.gul small::before { content: '≈'; }
+        .felt-boks.grå small::before { content: '✗'; }
+
+        .slut { margin: 24px 0; padding: 16px; border: 2px solid var(--tekst-farve); border-radius: 8px; }
+        .slut h2 { margin: 0 0 8px; }
+        .slut table { margin: 12px 0; }
+        .knapper { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+
+        .statistik { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; text-align: center; margin-top: 16px; }
+        .statistik b { display: block; font-size: 1.6rem; }
+        .statistik span { font-size: 0.75rem; color: var(--dæmpet); }
+
+        .regler summary { cursor: pointer; font-weight: bold; }
+        .regler { margin-top: 28px; color: var(--dæmpet); line-height: 1.5; }
+        .farve { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: middle; }
+    </style>
+</head>
+<body class="beregner">
+    <main>
+        <div class="spil-top">
+            <h1>Pilledle</h1>
+            <span class="tilstand" id="tilstand"></span>
+        </div>
+        <p class="undertitel">Gæt dagens lægemiddel på 6 forsøg. Hvert gæt giver ledetråde om ATC-gruppe, virkning, brug og form.</p>
+
+        <form class="gæt-form" id="gæt-form" autocomplete="off">
+            <input id="gæt-input" list="præparat-liste" placeholder="Skriv et lægemiddel, fx Panodil" aria-label="Dit gæt">
+            <button class="knap" type="submit" id="gæt-knap">Gæt</button>
+        </form>
+        <datalist id="præparat-liste"></datalist>
+        <p class="fejl" id="fejl" aria-live="polite"></p>
+
+        <div class="ledetråde" id="ledetråde"></div>
+        <div id="slut"></div>
+        <div id="gæt-liste"></div>
+
+        <details class="regler">
+            <summary>Sådan spiller du</summary>
+            <p>Skriv et lægemiddel (generisk navn eller handelsnavn). Hvert gæt sammenlignes med dagens løsning:</p>
+            <p><span class="farve" style="background:var(--grøn)"></span> ✓ samme &nbsp; <span class="farve" style="background:var(--gul)"></span> ≈ tæt på / delvist overlap &nbsp; <span class="farve" style="background:var(--grå)"></span> ✗ forskellig</p>
+            <p><strong>Område</strong>: ATC-niveau 1 (fx C = hjerte-kar). <strong>Gruppe</strong>: ATC-niveau 3 – gul hvis niveau 2 er ens. <strong>Klasse</strong>: virkningsmekanisme. <strong>Brug</strong> og <strong>Form</strong>: gul ved delvist overlap. <strong>Status</strong>: håndkøb, receptpligtig eller afhængighedsskabende. <strong>ATC-bjælken</strong> viser, hvor mange af ATC-kodens 5 niveauer der matcher.</p>
+            <p>Efter 3 gæt får du en beskrivelse, og efter 5 gæt forbogstavet. Der kommer et nyt lægemiddel hver dag ved midnat. Med “Øv dig” kan du spille så mange runder du vil.</p>
+            <p>Spillet er til sjov og læring – ikke en klinisk opslagskilde.</p>
+        </details>
+    </main>
+
+    <script>
+        const MAKS_GÆT = 6;
+        const DAG = 86400000;
+
+        // ---------- Hjælpere ----------
+        const norm = s => s.toLowerCase().normalize('NFC').replace(/[\s\-\.\/+()]/g, '');
+
+        function lager(nøgle, værdi) {
+            try {
+                if (værdi === undefined) return JSON.parse(localStorage.getItem(nøgle));
+                localStorage.setItem(nøgle, JSON.stringify(værdi));
+            } catch (e) { return null; }
+        }
+
+        function datoNøgle(d = new Date()) {
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        }
+
+        // Fast blandet rækkefølge, så dagens opgave ikke følger alfabetet
+        function blandet(liste, frø) {
+            const r = liste.slice();
+            let s = frø >>> 0;
+            const tilfældig = () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+            for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(tilfældig() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; }
+            return r;
+        }
+        const RÆKKEFØLGE = blandet(PRÆPARATER, 20261119);
+
+        function dagsNummer(nøgle) {
+            const [å, m, d] = nøgle.split('-').map(Number);
+            return Math.round((Date.UTC(å, m - 1, d) - Date.UTC(2026, 0, 1)) / DAG);
+        }
+        function dagensPræparat(nøgle) {
+            const n = RÆKKEFØLGE.length;
+            return RÆKKEFØLGE[((dagsNummer(nøgle) % n) + n) % n];
+        }
+
+        // Navneopslag: generisk navn og alle handelsnavne
+        const OPSLAG = new Map();
+        for (const p of PRÆPARATER) {
+            OPSLAG.set(norm(p.navn), p);
+            for (const m of p.mærker) if (!OPSLAG.has(norm(m))) OPSLAG.set(norm(m), p);
+        }
+        function find(tekst) {
+            const t = tekst.trim();
+            const m = t.match(/\(([^)]+)\)\s*$/);         // "Panodil (Paracetamol)"
+            if (m && OPSLAG.has(norm(m[1]))) return OPSLAG.get(norm(m[1]));
+            return OPSLAG.get(norm(t)) || null;
+        }
+
+        // ---------- Sammenligning ----------
+        function atcNiveauer(a, b) {
+            const længder = [1, 3, 4, 5, 7];
+            let n = 0;
+            for (const l of længder) { if (a.slice(0, l) === b.slice(0, l)) n++; else break; }
+            return n;
+        }
+        function listeFarve(a, b) {
+            const fælles = a.filter(x => b.includes(x)).length;
+            if (fælles === a.length && fælles === b.length) return 'grøn';
+            return fælles > 0 ? 'gul' : 'grå';
+        }
+        function sammenlign(g, s) {
+            return {
+                navn: g.navn,
+                atc: atcNiveauer(g.atc, s.atc),
+                felter: [
+                    { titel: 'Område', værdi: g.atc[0] + ' · ' + ATC_HOVEDGRUPPER[g.atc[0]], farve: g.atc[0] === s.atc[0] ? 'grøn' : 'grå' },
+                    { titel: 'Gruppe', værdi: ATC_GRUPPER[g.atc.slice(0, 4)] || g.atc.slice(0, 4),
+                      farve: g.atc.slice(0, 4) === s.atc.slice(0, 4) ? 'grøn' : g.atc.slice(0, 3) === s.atc.slice(0, 3) ? 'gul' : 'grå' },
+                    { titel: 'Klasse', værdi: g.klasse, farve: g.klasse === s.klasse ? 'grøn' : 'grå' },
+                    { titel: 'Brug', værdi: g.brug.join(', '), farve: listeFarve(g.brug, s.brug) },
+                    { titel: 'Form', værdi: g.former.join(', '), farve: listeFarve(g.former, s.former) },
+                    { titel: 'Status', værdi: STATUS_NAVN[g.status], farve: g.status === s.status ? 'grøn' : 'grå' },
+                ],
+            };
+        }
+
+        // ---------- Spiltilstand ----------
+        const iDag = datoNøgle();
+        let spil;   // { tilstand: 'dag' | 'øv', svar, gæt: [navne], slut: null | 'vundet' | 'tabt' }
+
+        function nytDagsspil() {
+            const gemt = lager('pilledle-' + iDag) || [];
+            spil = { tilstand: 'dag', svar: dagensPræparat(iDag), gæt: [], slut: null };
+            for (const navn of gemt) { const p = find(navn); if (p) registrér(p, false); }
+        }
+        function nytØvespil() {
+            let svar;
+            do { svar = PRÆPARATER[Math.floor(Math.random() * PRÆPARATER.length)]; } while (spil && svar === spil.svar);
+            spil = { tilstand: 'øv', svar, gæt: [], slut: null };
+        }
+
+        function registrér(p, gem = true) {
+            spil.gæt.push(p.navn);
+            if (p === spil.svar) spil.slut = 'vundet';
+            else if (spil.gæt.length >= MAKS_GÆT) spil.slut = 'tabt';
+            if (gem && spil.tilstand === 'dag') {
+                lager('pilledle-' + iDag, spil.gæt);
+                if (spil.slut) opdatérStatistik();
+            }
+        }
+
+        function opdatérStatistik() {
+            const st = lager('pilledle-stats') || { spillet: 0, vundet: 0, stime: 0, bedste: 0, sidste: null, fordeling: [0, 0, 0, 0, 0, 0] };
+            if (st.sidste === iDag) return;
+            const igår = datoNøgle(new Date(Date.now() - DAG));
+            st.spillet++;
+            if (spil.slut === 'vundet') {
+                st.vundet++;
+                st.fordeling[spil.gæt.length - 1]++;
+                st.stime = st.sidsteVundet === igår ? st.stime + 1 : 1;
+                st.sidsteVundet = iDag;
+                st.bedste = Math.max(st.bedste, st.stime);
+            } else {
+                st.stime = 0;
+            }
+            st.sidste = iDag;
+            lager('pilledle-stats', st);
+        }
+
+        // ---------- Visning ----------
+        const $ = id => document.getElementById(id);
+
+        function visGæt() {
+            $('gæt-liste').innerHTML = spil.gæt.slice().reverse().map(navn => {
+                const r = sammenlign(find(navn), spil.svar);
+                const bjælke = [0, 1, 2, 3, 4].map(i => '<i class="' + (i < r.atc ? 'på' : '') + '"></i>').join('');
+                return '<div class="gæt' + (navn === spil.gæt[spil.gæt.length - 1] ? ' ny' : '') + '"><div class="gæt-hoved"><span class="gæt-navn">' + r.navn + '</span>' +
+                    '<span class="atc-match" title="ATC-niveauer der matcher">ATC <span class="bjælke">' + bjælke + '</span> ' + r.atc + '/5</span></div>' +
+                    '<div class="felter">' + r.felter.map(f =>
+                        '<div class="felt-boks ' + f.farve + '"><small>' + f.titel + '</small><span>' + f.værdi + '</span></div>'
+                    ).join('') + '</div></div>';
+            }).join('');
+        }
+
+        function visLedetråde() {
+            const n = spil.gæt.length;
+            const linjer = [];
+            linjer.push('<p>' + (spil.slut ? 'Brugte gæt: ' + n : 'Gæt ' + (n + 1)) + ' af ' + MAKS_GÆT + '</p>');
+            linjer.push(n >= 3 || spil.slut
+                ? '<p><strong>Beskrivelse:</strong> ' + spil.svar.beskrivelse + '</p>'
+                : '<p>Beskrivelse låses op efter 3 gæt.</p>');
+            linjer.push(n >= 5 || spil.slut
+                ? '<p><strong>Forbogstav:</strong> ' + spil.svar.navn[0] + ' (' + spil.svar.navn.length + ' tegn)</p>'
+                : '<p>Forbogstav låses op efter 5 gæt.</p>');
+            $('ledetråde').innerHTML = linjer.join('');
+        }
+
+        function delTekst() {
+            const emoji = { grøn: '🟩', gul: '🟨', grå: '⬛' };
+            const rækker = spil.gæt.map(navn => sammenlign(find(navn), spil.svar).felter.map(f => emoji[f.farve]).join(''));
+            const resultat = spil.slut === 'vundet' ? spil.gæt.length : 'X';
+            return 'Pilledle ' + (spil.tilstand === 'dag' ? iDag : '(øverunde)') + ' ' + resultat + '/' + MAKS_GÆT + '\n' + rækker.join('\n');
+        }
+
+        function visSlut() {
+            if (!spil.slut) { $('slut').innerHTML = ''; return; }
+            const s = spil.svar;
+            const overskrift = spil.slut === 'vundet'
+                ? '🎉 Rigtigt på ' + spil.gæt.length + ' forsøg!'
+                : 'Desværre – svaret var ' + s.navn;
+            let html = '<div class="slut"><h2>' + overskrift + '</h2>' +
+                '<table>' +
+                '<tr><th>Lægemiddel</th><td>' + s.navn + '</td></tr>' +
+                '<tr><th>Handelsnavne</th><td>' + s.mærker.join(', ') + '</td></tr>' +
+                '<tr><th>ATC-kode</th><td>' + s.atc + ' (' + (ATC_GRUPPER[s.atc.slice(0, 4)] || '') + ')</td></tr>' +
+                '<tr><th>Klasse</th><td>' + s.klasse + '</td></tr>' +
+                '<tr><th>Brug</th><td>' + s.brug.join(', ') + '</td></tr>' +
+                '</table>' +
+                '<div class="knapper"><button class="knap" id="del">Del resultat</button>' +
+                '<button class="knap sekundær" id="øv">' + (spil.tilstand === 'dag' ? 'Øv dig med en ny' : 'Ny øverunde') + '</button>' +
+                (spil.tilstand === 'øv' ? '<button class="knap sekundær" id="tilbage">Tilbage til dagens</button>' : '') +
+                '</div>';
+            if (spil.tilstand === 'dag') {
+                const st = lager('pilledle-stats');
+                if (st) {
+                    html += '<div class="statistik">' +
+                        '<div><b>' + st.spillet + '</b><span>Spillet</span></div>' +
+                        '<div><b>' + Math.round(100 * st.vundet / Math.max(st.spillet, 1)) + '</b><span>% vundet</span></div>' +
+                        '<div><b>' + st.stime + '</b><span>Stime</span></div>' +
+                        '<div><b>' + st.bedste + '</b><span>Bedste stime</span></div></div>';
+                }
+            }
+            $('slut').innerHTML = html + '</div>';
+            $('del').onclick = async () => {
+                const tekst = delTekst();
+                try { await navigator.clipboard.writeText(tekst); $('del').textContent = 'Kopieret ✓'; }
+                catch (e) { prompt('Kopiér dit resultat:', tekst); }
+            };
+            $('øv').onclick = () => { nytØvespil(); vis(); };
+            if ($('tilbage')) $('tilbage').onclick = () => { nytDagsspil(); vis(); };
+        }
+
+        function vis() {
+            $('tilstand').textContent = spil.tilstand === 'dag' ? 'Dagens: ' + iDag : 'Øverunde';
+            $('gæt-input').disabled = $('gæt-knap').disabled = !!spil.slut;
+            $('fejl').textContent = '';
+            visLedetråde();
+            visSlut();
+            visGæt();
+        }
+
+        // ---------- Input ----------
+        $('præparat-liste').innerHTML = PRÆPARATER.flatMap(p =>
+            [p.navn, ...p.mærker.filter(m => norm(m) !== norm(p.navn)).map(m => m + ' (' + p.navn + ')')]
+        ).sort((a, b) => a.localeCompare(b, 'da')).map(n => '<option value="' + n + '">').join('');
+
+        $('gæt-form').addEventListener('submit', e => {
+            e.preventDefault();
+            if (spil.slut) return;
+            const felt = $('gæt-input');
+            if (!felt.value.trim()) return;
+            const p = find(felt.value);
+            if (!p) { $('fejl').textContent = 'Kender ikke “' + felt.value.trim() + '” – vælg fra listen.'; return; }
+            if (spil.gæt.includes(p.navn)) { $('fejl').textContent = 'Du har allerede gættet ' + p.navn + '.'; return; }
+            registrér(p);
+            felt.value = '';
+            vis();
+            if (!spil.slut) felt.focus();
+        });
+
+        nytDagsspil();
+        vis();
+    </script>
+</body>
+</html>

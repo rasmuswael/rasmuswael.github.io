@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHA₂DS₂-VA-score</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="menu.js" defer></script>
+    <script src="beregn.js"></script>
+</head>
+<body class="beregner">
+    <main>
+        <h1>CHA₂DS₂-VA</h1>
+        <p class="undertitel">Risiko for apopleksi ved atrieflimren (ESC 2024 – uden køn)</p>
+
+        <div class="felt">
+            <span class="etiket">Alder</span>
+            <div class="valg">
+                <label class="afkryds"><input type="radio" name="alder" value="0" checked> Under 65</label>
+                <label class="afkryds"><input type="radio" name="alder" value="1"> 65–74 (+1)</label>
+                <label class="afkryds"><input type="radio" name="alder" value="2"> 75 eller derover (+2)</label>
+            </div>
+        </div>
+
+        <div class="felt">
+            <span class="etiket">Risikofaktorer</span>
+            <label class="afkryds"><input type="checkbox" value="1"><span>Hjertesvigt (+1)<small>Klinisk hjertesvigt eller nedsat LVEF uanset årsag</small></span></label>
+            <label class="afkryds"><input type="checkbox" value="1"><span>Hypertension (+1)<small>Behandlet eller BT ≥ 140/90 ved gentagne målinger</small></span></label>
+            <label class="afkryds"><input type="checkbox" value="1"><span>Diabetes (+1)<small>Type 1 eller 2, behandlet eller HbA1c ≥ 48 mmol/mol</small></span></label>
+            <label class="afkryds"><input type="checkbox" value="2"><span>Tidligere apopleksi, TCI eller arteriel tromboemboli (+2)</span></label>
+            <label class="afkryds"><input type="checkbox" value="1"><span>Vaskulær sygdom (+1)<small>AMI, iskæmisk hjertesygdom, perifer arteriesygdom, aortaplaque</small></span></label>
+        </div>
+
+        <div id="resultat" class="resultat" aria-live="polite"></div>
+
+        <footer>
+            <p><strong>Vejledende.</strong> Scoren er én del af vurderingen. Vurdér også blødningsrisiko og modificerbare risikofaktorer. Gælder ikke ved moderat/svær mitralstenose eller mekanisk hjerteklap (her er AK-behandling altid indiceret).</p>
+            <p>ESC 2024: score ≥ 2 → oral antikoagulation anbefales (klasse I); score 1 → bør overvejes (IIa); score 0 → ingen antikoagulation.</p>
+            <p>Kilde: <a href="https://www.escardio.org/Guidelines/Clinical-Practice-Guidelines" target="_blank" rel="noopener">2024 ESC Guidelines for the management of atrial fibrillation</a> · <a href="https://nbv.cardio.dk" target="_blank" rel="noopener">Dansk Cardiologisk Selskab – NBV</a></p>
+        </footer>
+    </main>
+
+    <script>
+        const resultat = document.getElementById('resultat');
+
+        function beregn() {
+            let score = Number(document.querySelector('input[name="alder"]:checked').value);
+            document.querySelectorAll('input[type="checkbox"]:checked').forEach(c => score += Number(c.value));
+
+            let anbefaling;
+            if (score >= 2) anbefaling = 'Oral antikoagulation anbefales (ESC klasse I).';
+            else if (score === 1) anbefaling = 'Oral antikoagulation bør overvejes (ESC klasse IIa).';
+            else anbefaling = 'Lav risiko – antikoagulation ikke indiceret. Revurdér når risikofaktorer ændrer sig.';
+
+            resultat.innerHTML = '<p class="stortal">' + score + ' point</p>';
+            const t = document.createElement('div');
+            visTabel(t, [['Anbefaling', anbefaling]]);
+            resultat.appendChild(t);
+        }
+        bindAlle(beregn);
+    </script>
+</body>
+</html>

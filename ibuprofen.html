@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ibuprofen-beregner</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="menu.js" defer></script>
+    <script src="beregn.js"></script>
+</head>
+<body class="beregner">
+    <main>
+        <h1>Ibuprofen-beregner</h1>
+        <p class="undertitel">Ibuprofen mod smerter og feber til børn, efter vægt (Lægehåndbogen, sundhed.dk)</p>
+
+        <div class="felt">
+            <label for="vaegt">Barnets vægt (kg)</label>
+            <input id="vaegt" type="number" inputmode="decimal" min="0" max="150" step="0.1" placeholder="F.eks. 14,5" autofocus>
+        </div>
+        <label class="afkryds"><input id="ung" type="checkbox"> Barnet er under 6 måneder</label>
+
+        <div id="resultat" class="resultat" aria-live="polite"></div>
+
+        <footer>
+            <p><strong>Vejledende.</strong> Beregningen erstatter ikke klinisk vurdering. Undgå ibuprofen ved dehydrering, nyresygdom, aktiv blødning/mavesår og skoldkopper, og vær forsigtig ved astma.</p>
+            <p>Grundlag: børn ≥ 6 måneder og ≥ 7 kg: 5–7,5 mg/kg pr. dosis, højst 20–30 mg/kg/døgn, hver 6. time op til 4 gange dagligt. Mikstur beregnet for 20 mg/ml. Børn ≥ 40 kg: 200–400 mg pr. dosis, højst 1200 mg/døgn i håndkøbsdosering.</p>
+            <p>Kilde: <a href="https://www.sundhed.dk/sundhedsfaglig/laegehaandbogen/dli-medicin/?id=6367" target="_blank" rel="noopener">Lægehåndbogen – ibuprofen</a> · <a href="https://pro.medicin.dk" target="_blank" rel="noopener">pro.medicin.dk</a></p>
+        </footer>
+    </main>
+
+    <script>
+        const resultat = document.getElementById('resultat');
+        const MIXTUR_MG_PR_ML = 20;
+
+        function beregn() {
+            const kg = læsTal('vaegt');
+            if (isNaN(kg)) { resultat.innerHTML = ''; return; }
+            if (kg <= 0 || kg > 150) return visBesked(resultat, 'Indtast en gyldig vægt i kg.');
+            if (document.getElementById('ung').checked || kg < 7) {
+                return visBesked(resultat, 'Ibuprofen må ikke gives til børn under 6 måneder eller under 7 kg. Brug paracetamol.');
+            }
+            if (kg >= 40) {
+                return visTabel(resultat, [
+                    ['Enkeltdosis', '200–400 mg'],
+                    ['Interval', 'Mindst 6 timer, op til 3–4 gange i døgnet'],
+                    ['Maks. døgndosis', '1200 mg'],
+                ]);
+            }
+            const dosisMin = 5 * kg, dosisMax = 7.5 * kg;
+            const døgnMin = 20 * kg, døgnMax = 30 * kg;
+            visTabel(resultat, [
+                ['Enkeltdosis', tal(dosisMin) + '–' + tal(dosisMax) + ' mg'],
+                ['Mikstur 20 mg/ml', tal(dosisMin / MIXTUR_MG_PR_ML, 1) + '–' + tal(dosisMax / MIXTUR_MG_PR_ML, 1) + ' ml pr. dosis'],
+                ['Interval', 'Hver 6. time, op til 4 gange i døgnet'],
+                ['Maks. døgndosis', tal(døgnMin) + '–' + tal(døgnMax) + ' mg (' + tal(døgnMax / MIXTUR_MG_PR_ML, 1) + ' ml)'],
+            ]);
+        }
+        bindAlle(beregn);
+    </script>
+</body>
+</html>

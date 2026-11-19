@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>eGFR og kreatininclearance</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="menu.js" defer></script>
+    <script src="beregn.js"></script>
+</head>
+<body class="beregner">
+    <main>
+        <h1>Nyrefunktion</h1>
+        <p class="undertitel">eGFR (CKD-EPI 2021) og kreatininclearance (Cockcroft–Gault) for voksne</p>
+
+        <div class="felt">
+            <label for="krea">P-kreatinin (µmol/L)</label>
+            <input id="krea" type="number" inputmode="decimal" min="0" step="1" placeholder="F.eks. 85" autofocus>
+        </div>
+        <div class="felt">
+            <label for="alder">Alder (år)</label>
+            <input id="alder" type="number" inputmode="numeric" min="18" max="120" step="1" placeholder="F.eks. 67">
+        </div>
+        <div class="felt">
+            <span class="etiket">Køn</span>
+            <div class="valg">
+                <label class="afkryds"><input type="radio" name="koen" value="k" checked> Kvinde</label>
+                <label class="afkryds"><input type="radio" name="koen" value="m"> Mand</label>
+            </div>
+        </div>
+        <div class="felt">
+            <label for="vaegt">Vægt (kg) – kun til Cockcroft–Gault</label>
+            <input id="vaegt" type="number" inputmode="decimal" min="0" step="0.1" placeholder="F.eks. 72">
+        </div>
+
+        <div id="resultat" class="resultat" aria-live="polite"></div>
+
+        <footer>
+            <p><strong>Vejledende.</strong> eGFR er normaliseret til 1,73 m² og bruges til stadieinddeling. Til dosisjustering af lægemidler angives ofte kreatininclearance (Cockcroft–Gault) eller absolut GFR – følg produktresuméet. Upålidelig ved ekstrem muskelmasse, amputation, graviditet og ustabil nyrefunktion.</p>
+            <p>CKD-EPI 2021 (uden race): 142 × min(Scr/κ, 1)<sup>α</sup> × max(Scr/κ, 1)<sup>−1,200</sup> × 0,9938<sup>alder</sup> × 1,012 [kvinde]; κ = 0,7/0,9, α = −0,241/−0,302 (kvinde/mand), Scr i mg/dL (µmol/L ÷ 88,4).
+            Cockcroft–Gault: (140 − alder) × vægt × 1,23 [mand] eller 1,04 [kvinde] ÷ kreatinin (µmol/L).</p>
+            <p>Kilder: <a href="https://www.nejm.org/doi/full/10.1056/NEJMoa2102953" target="_blank" rel="noopener">Inker et al., NEJM 2021</a> · <a href="https://kdigo.org/guidelines/ckd-evaluation-and-management/" target="_blank" rel="noopener">KDIGO 2024</a></p>
+        </footer>
+    </main>
+
+    <script>
+        const resultat = document.getElementById('resultat');
+
+        function ckdEpi2021(kreaUmol, alder, kvinde) {
+            const scr = kreaUmol / 88.4;
+            const k = kvinde ? 0.7 : 0.9;
+            const a = kvinde ? -0.241 : -0.302;
+            return 142 * Math.pow(Math.min(scr / k, 1), a) * Math.pow(Math.max(scr / k, 1), -1.200)
+                * Math.pow(0.9938, alder) * (kvinde ? 1.012 : 1);
+        }
+
+        function cockcroftGault(kreaUmol, alder, kg, kvinde) {
+            return (140 - alder) * kg * (kvinde ? 1.04 : 1.23) / kreaUmol;
+        }
+
+        function stadie(egfr) {
+            if (egfr >= 90) return 'G1 – normal eller høj';
+            if (egfr >= 60) return 'G2 – let nedsat';
+            if (egfr >= 45) return 'G3a – let til moderat nedsat';
+            if (egfr >= 30) return 'G3b – moderat til svært nedsat';
+            if (egfr >= 15) return 'G4 – svært nedsat';
+            return 'G5 – nyresvigt';
+        }
+
+        function beregn() {
+            const krea = læsTal('krea'), alder = læsTal('alder'), kg = læsTal('vaegt');
+            const kvinde = document.querySelector('input[name="koen"]:checked').value === 'k';
+            if (isNaN(krea) || isNaN(alder)) { resultat.innerHTML = ''; return; }
+            if (krea <= 0 || krea > 3000) return visBesked(resultat, 'Indtast en gyldig kreatininværdi i µmol/L.');
+            if (alder < 18 || alder > 120) return visBesked(resultat, 'Formlerne gælder for voksne (≥ 18 år). Til børn bruges fx Schwartz-formlen.');
+
+            const egfr = ckdEpi2021(krea, alder, kvinde);
+            const rækker = [
+                ['eGFR (CKD-EPI 2021)', tal(egfr, 0, 'rund') + ' ml/min/1,73 m²'],
+                ['KDIGO-stadie', stadie(egfr)],
+            ];
+            if (!isNaN(kg) && kg > 0 && kg < 400) {
+                rækker.push(['Kreatininclearance (Cockcroft–Gault)', tal(cockcroftGault(krea, alder, kg, kvinde), 0, 'rund') + ' ml/min']);
+            } else {
+                rækker.push(['Kreatininclearance', 'Indtast vægt for Cockcroft–Gault']);
+            }
+            visTabel(resultat, rækker);
+        }
+        bindAlle(beregn);
+    </script>
+</body>
+</html>

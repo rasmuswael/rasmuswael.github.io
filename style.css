@@ -1,0 +1,107 @@
+/* --- KONTROLPANEL --- */
+:root {
+    /* Ret disse variabler for at ændre designet på alle sider */
+    --baggrunds-farve: #222222;
+    --tekst-farve:     #ffffff;
+    --skrifttype:      'Arial', sans-serif;
+    --dæmpet:          #aaaaaa;
+    --advarsel:        #ffcc66;
+    --linje:           #444444;
+}
+
+body {
+    background-color: var(--baggrunds-farve);
+    color: var(--tekst-farve);
+    font-family: var(--skrifttype);
+    margin: 0;
+}
+
+/* --- HAMBURGER-MENU (indsættes af menu.js) --- */
+.menu {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 10;
+    text-align: left;
+}
+.menu summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 6px 12px;
+    font-size: 1.6rem;
+    line-height: 1;
+    border: 2px solid var(--tekst-farve);
+    border-radius: 6px;
+    font-weight: bold;
+    user-select: none;
+    background: var(--baggrunds-farve);
+}
+.menu summary::-webkit-details-marker { display: none; }
+.menu[open] summary { background: var(--tekst-farve); color: var(--baggrunds-farve); }
+.menu nav {
+    position: absolute;
+    left: 0;
+    margin-top: 6px;
+    min-width: 240px;
+    max-height: calc(100vh - 90px);
+    overflow-y: auto;
+    background: var(--baggrunds-farve);
+    border: 2px solid var(--tekst-farve);
+    border-radius: 6px;
+}
+.menu nav .gruppe {
+    padding: 10px 16px 4px;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--dæmpet);
+}
+.menu nav a {
+    display: block;
+    padding: 10px 16px;
+    color: var(--tekst-farve);
+    text-decoration: none;
+}
+.menu nav a:hover, .menu nav a:focus { background: var(--tekst-farve); color: var(--baggrunds-farve); }
+.menu nav a[aria-current="page"] { font-weight: bold; }
+
+/* --- BEREGNER-SIDER --- */
+body.beregner {
+    padding: 80px 16px 40px;
+    min-height: 100vh;
+    box-sizing: border-box;
+}
+.beregner main { max-width: 560px; margin: 0 auto; }
+.beregner h1 { font-size: 2rem; margin: 0 0 8px; }
+.beregner h2 { font-size: 1.25rem; margin: 32px 0 12px; }
+.undertitel { color: var(--dæmpet); margin: 0 0 28px; }
+
+.felt { margin-bottom: 18px; }
+.felt > label, .felt > .etiket { display: block; font-weight: bold; margin-bottom: 8px; }
+.beregner input[type="number"], .beregner input[type="date"], .beregner select {
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 1.25rem;
+    padding: 10px 12px;
+    border: 2px solid var(--tekst-farve);
+    border-radius: 6px;
+    background: var(--baggrunds-farve);
+    color: var(--tekst-farve);
+    font-family: inherit;
+    color-scheme: dark;
+}
+.valg { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+.afkryds { display: flex; gap: 10px; align-items: flex-start; font-weight: normal; margin: 10px 0; }
+.afkryds input { width: 20px; height: 20px; flex: none; margin: 0; }
+.afkryds small { color: var(--dæmpet); display: block; }
+
+.resultat { margin-top: 28px; }
+.beregner table { width: 100%; border-collapse: collapse; }
+.beregner th, .beregner td { text-align: left; padding: 12px 8px; border-bottom: 1px solid var(--linje); vertical-align: top; }
+.beregner th { font-weight: normal; color: var(--dæmpet); width: 45%; }
+.beregner td { font-weight: bold; font-size: 1.1rem; }
+.stortal { font-size: 2.5rem; font-weight: bold; margin: 0; }
+.besked { padding: 16px; border: 2px solid var(--advarsel); border-radius: 6px; color: var(--advarsel); }
+
+.beregner footer { margin-top: 36px; font-size: 0.9rem; color: var(--dæmpet); line-height: 1.5; }
+.beregner footer a { color: var(--tekst-farve); }

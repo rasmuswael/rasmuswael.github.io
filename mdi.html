@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MDI – depression</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="menu.js" defer></script>
+    <script src="beregn.js"></script>
+    <style>
+        .spm { margin-bottom: 18px; }
+        .spm label { display: block; margin-bottom: 6px; }
+    </style>
+</head>
+<body class="beregner">
+    <main>
+        <h1>MDI</h1>
+        <p class="undertitel">Major Depression Inventory. Hvor meget af tiden i de sidste 2 uger …</p>
+
+        <form id="skema"></form>
+
+        <div id="resultat" class="resultat" aria-live="polite"></div>
+
+        <footer>
+            <p><strong>Vejledende.</strong> MDI er et hjælperedskab. Diagnosen stilles ved klinisk interview. Spørg altid ind til selvmordstanker ved point på spørgsmål 6.</p>
+            <p>Sværhedsgrad (Lægehåndbogen): 0–20 ingen/tvivlsom, 21–25 let, 26–30 moderat, 31–50 svær depression. Ved spørgsmål 8 og 10 tælles det højeste af a og b.
+            ICD-10-algoritme: et symptom regnes som til stede ved 4 eller 5 point. Let: 2 af spm. 1–3 + 2 af spm. 4–10. Moderat: 2 af spm. 1–3 + 4 af spm. 4–10. Svær: alle 3 af spm. 1–3 + 5 af spm. 4–10.</p>
+            <p>Kilder: <a href="https://www.sundhed.dk/sundhedsfaglig/laegehaandbogen/undersoegelser-og-proever/kalkulatorer/major-depression-inventory-mdi/" target="_blank" rel="noopener">Lægehåndbogen – MDI</a> · <a href="https://apps.nhslothian.scot/files/sites/2/Mental-Health-Scoring-of-MDI-Major-Depression_Inventory.pdf" target="_blank" rel="noopener">Scoring of the MDI</a> · Bech P et al., Psykiatrisk Forskningsenhed, Hillerød</p>
+        </footer>
+    </main>
+
+    <script>
+        const resultat = document.getElementById('resultat');
+
+        const SPØRGSMÅL = [
+            ['1', 'Har du følt dig trist til mode, ked af det?'],
+            ['2', 'Har du manglet interesse for dine daglige gøremål?'],
+            ['3', 'Har du følt, at du manglede energi og kræfter?'],
+            ['4', 'Har du haft mindre selvtillid?'],
+            ['5', 'Har du haft dårlig samvittighed eller skyldfølelse?'],
+            ['6', 'Har du følt, at livet ikke var værd at leve?'],
+            ['7', 'Har du haft besvær med at koncentrere dig, f.eks. at læse avis eller følge med i fjernsyn?'],
+            ['8a', 'Har du følt dig rastløs?'],
+            ['8b', 'Har du følt dig mere stille?'],
+            ['9', 'Har du haft besvær med at sove om natten?'],
+            ['10a', 'Har du haft nedsat appetit?'],
+            ['10b', 'Har du haft øget appetit?'],
+        ];
+        const SVAR = ['På intet tidspunkt (0)', 'Lidt af tiden (1)', 'Lidt under halvdelen af tiden (2)',
+                      'Lidt over halvdelen af tiden (3)', 'Det meste af tiden (4)', 'Hele tiden (5)'];
+
+        document.getElementById('skema').innerHTML = SPØRGSMÅL.map(([nr, tekst]) =>
+            '<div class="spm"><label for="q' + nr + '"><strong>' + nr + '.</strong> ' + tekst + '</label>' +
+            '<select id="q' + nr + '"><option value="">– vælg –</option>' +
+            SVAR.map((s, i) => '<option value="' + i + '">' + s + '</option>').join('') +
+            '</select></div>'
+        ).join('');
+
+        function værdi(nr) {
+            const v = document.getElementById('q' + nr).value;
+            return v === '' ? null : Number(v);
+        }
+
+        // Returnerer de 10 itemscorer (8 og 10 = højeste af a/b), eller null hvis noget mangler
+        function items() {
+            const r = [];
+            for (const nr of ['1', '2', '3', '4', '5', '6', '7', ['8a', '8b'], '9', ['10a', '10b']]) {
+                if (Array.isArray(nr)) {
+                    const a = værdi(nr[0]), b = værdi(nr[1]);
+                    if (a === null || b === null) return null;
+                    r.push(Math.max(a, b));
+                } else {
+                    const v = værdi(nr);
+                    if (v === null) return null;
+                    r.push(v);
+                }
+            }
+            return r;
+        }
+
+        function sværhed(sum) {
+            if (sum <= 20) return 'Ingen eller tvivlsom depression';
+            if (sum <= 25) return 'Let depression';
+            if (sum <= 30) return 'Moderat depression';
+            return 'Svær depression';
+        }
+
+        function icd10(it) {
+            const kerne = it.slice(0, 3).filter(v => v >= 4).length;
+            const øvrige = it.slice(3).filter(v => v >= 4).length;
+            if (kerne === 3 && øvrige >= 5) return 'Svær depression';
+            if (kerne >= 2 && øvrige >= 4) return 'Moderat depression';
+            if (kerne >= 2 && øvrige >= 2) return 'Let depression';
+            return 'Kriterierne ikke opfyldt';
+        }
+
+        function beregn() {
+            const it = items();
+            if (!it) {
+                const besvaret = SPØRGSMÅL.filter(([nr]) => værdi(nr) !== null).length;
+                resultat.innerHTML = besvaret ? '<p class="undertitel">' + besvaret + ' af ' + SPØRGSMÅL.length + ' besvaret</p>' : '';
+                return;
+            }
+            const sum = it.reduce((a, b) => a + b, 0);
+            resultat.innerHTML = '<p class="stortal">' + sum + ' / 50</p>';
+            const t = document.createElement('div');
+            const rækker = [
+                ['Sværhedsgrad (sumscore)', sværhed(sum)],
+                ['ICD-10-algoritme', icd10(it)],
+            ];
+            if (it[5] > 0) rækker.push(['Bemærk', 'Point på spm. 6 – vurdér selvmordsrisiko.']);
+            visTabel(t, rækker);
+            resultat.appendChild(t);
+        }
+        bindAlle(beregn);
+    </script>
+</body>
+</html>

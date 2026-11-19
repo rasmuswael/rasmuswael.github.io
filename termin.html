@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terminsberegner</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="menu.js" defer></script>
+    <script src="beregn.js"></script>
+</head>
+<body class="beregner">
+    <main>
+        <h1>Terminsberegner</h1>
+        <p class="undertitel">Terminsdato og gestationsalder ud fra sidste menstruation eller ultralydsscanning</p>
+
+        <div class="felt">
+            <label for="metode">Beregn ud fra</label>
+            <select id="metode">
+                <option value="sm">Sidste menstruations 1. dag</option>
+                <option value="scan">Ultralydsscanning (nakkefold / tidlig scanning)</option>
+            </select>
+        </div>
+
+        <div id="sm-felter">
+            <div class="felt">
+                <label for="smdato">1. dag i sidste menstruation</label>
+                <input id="smdato" type="date">
+            </div>
+            <div class="felt">
+                <label for="cyklus">Cykluslængde (dage)</label>
+                <input id="cyklus" type="number" inputmode="numeric" min="20" max="45" step="1" value="28">
+            </div>
+        </div>
+
+        <div id="scan-felter" hidden>
+            <div class="felt">
+                <label for="scandato">Scanningsdato</label>
+                <input id="scandato" type="date">
+            </div>
+            <div class="felt">
+                <span class="etiket">Gestationsalder ved scanning</span>
+                <div class="valg">
+                    <label class="afkryds">Uger <input id="scanuger" type="number" inputmode="numeric" min="4" max="42" step="1" style="width:90px" placeholder="12"></label>
+                    <label class="afkryds">+ dage <input id="scandage" type="number" inputmode="numeric" min="0" max="6" step="1" style="width:90px" placeholder="3"></label>
+                </div>
+            </div>
+        </div>
+
+        <div class="felt">
+            <label for="idag">Beregn gestationsalder pr.</label>
+            <input id="idag" type="date">
+        </div>
+
+        <div id="resultat" class="resultat" aria-live="polite"></div>
+
+        <footer>
+            <p><strong>Vejledende.</strong> I Danmark fastsættes terminen normalt ved nakkefoldsscanningen (CRL) eller ved 1. trimesterscanning. Naegeles regel: sidste menstruation + 280 dage, korrigeret for cykluslængde (+/− antal dage over/under 28).</p>
+            <p>Kilde: <a href="https://www.sundhed.dk/sundhedsfaglig/laegehaandbogen/undersoegelser-og-proever/kalkulatorer/" target="_blank" rel="noopener">Lægehåndbogen – kalkulatorer</a> · <a href="https://www.sst.dk/da/udgivelser/2021/anbefalinger-for-svangreomsorgen" target="_blank" rel="noopener">Sundhedsstyrelsen – Anbefalinger for svangreomsorgen</a></p>
+        </footer>
+    </main>
+
+    <script>
+        const resultat = document.getElementById('resultat');
+        const DAG = 86400000;
+
+        // Datoer behandles som UTC-midnat for at undgå sommertids-forskydninger
+        function læsDato(id) {
+            const v = document.getElementById(id).value;
+            if (!v) return null;
+            const [å, m, d] = v.split('-').map(Number);
+            return Date.UTC(å, m - 1, d);
+        }
+        function datoTekst(ms) {
+            return new Date(ms).toLocaleDateString('da-DK', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+        }
+        function ga(dage) { return Math.floor(dage / 7) + '+' + (dage % 7); }
+
+        // Sæt "i dag" som standard
+        const nu = new Date();
+        document.getElementById('idag').value = nu.getFullYear() + '-' + String(nu.getMonth() + 1).padStart(2, '0') + '-' + String(nu.getDate()).padStart(2, '0');
+
+        function beregn() {
+            const scan = document.getElementById('metode').value === 'scan';
+            document.getElementById('sm-felter').hidden = scan;
+            document.getElementById('scan-felter').hidden = !scan;
+
+            let termin;
+            if (!scan) {
+                const sm = læsDato('smdato');
+                const cyklus = læsTal('cyklus');
+                if (sm === null) { resultat.innerHTML = ''; return; }
+                if (isNaN(cyklus) || cyklus < 20 || cyklus > 45) return visBesked(resultat, 'Cykluslængden skal være mellem 20 og 45 dage.');
+                termin = sm + (280 + (cyklus - 28)) * DAG;
+            } else {
+                const sd = læsDato('scandato');
+                const uger = læsTal('scanuger');
+                const dage = isNaN(læsTal('scandage')) ? 0 : læsTal('scandage');
+                if (sd === null || isNaN(uger)) { resultat.innerHTML = ''; return; }
+                if (uger < 4 || uger > 42 || dage < 0 || dage > 6) return visBesked(resultat, 'Angiv gestationsalder som uger (4–42) + dage (0–6).');
+                termin = sd + (280 - (uger * 7 + dage)) * DAG;
+            }
+
+            const rækker = [['Terminsdato', datoTekst(termin)]];
+            const idag = læsDato('idag');
+            if (idag !== null) {
+                const gaDage = 280 - Math.round((termin - idag) / DAG);
+                if (gaDage < 0) rækker.push(['Gestationsalder', 'Før 1. dag i sidste menstruation']);
+                else {
+                    rækker.push(['Gestationsalder', ga(gaDage) + ' (' + gaDage + ' dage)']);
+                    rækker.push(['Trimester', gaDage < 14 * 7 ? '1. trimester' : gaDage < 28 * 7 ? '2. trimester' : '3. trimester']);
+                    if (gaDage > 280) rækker.push(['Overbåren', (gaDage - 280) + ' dage over termin']);
+                }
+            }
+            rækker.push(['Nakkefoldsscanning (11+2–14+0)', datoTekst(termin - (280 - 79) * DAG) + ' – ' + datoTekst(termin - (280 - 98) * DAG)]);
+            rækker.push(['Misdannelsesscanning (ca. 18+0–20+6)', datoTekst(termin - (280 - 126) * DAG) + ' – ' + datoTekst(termin - (280 - 146) * DAG)]);
+            visTabel(resultat, rækker);
+        }
+        bindAlle(beregn);
+    </script>
+</body>
+</html>

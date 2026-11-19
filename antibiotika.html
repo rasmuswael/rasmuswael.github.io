@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Antibiotika til børn</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="menu.js" defer></script>
+    <script src="beregn.js"></script>
+</head>
+<body class="beregner">
+    <main>
+        <h1>Antibiotika-mikstur</h1>
+        <p class="undertitel">Flydende antibiotika til børn, efter vægt (Børnedoseringstabel, “Infektioner i almen praksis” v. 6.4, august 2025)</p>
+
+        <div class="felt">
+            <label for="middel">Præparat</label>
+            <select id="middel">
+                <option value="pcv">Penicillin V (Primcillin, Primve m.fl.) 50 mg/ml</option>
+                <option value="amox">Amoxicillin (Imacillin, Imaxi) 50 mg/ml</option>
+                <option value="amoxclav">Amoxicillin + clavulansyre (Spektramox, Augmentin Forte) 50/12,5 mg/ml</option>
+                <option value="clari">Clarithromycin (Klacid) 25 eller 50 mg/ml</option>
+                <option value="trim">Trimethoprim (Trimopan) 10 mg/ml</option>
+            </select>
+        </div>
+        <div class="felt">
+            <label for="vaegt">Barnets vægt (kg)</label>
+            <input id="vaegt" type="number" inputmode="decimal" min="0" max="150" step="0.1" placeholder="F.eks. 14,5" autofocus>
+        </div>
+
+        <div id="resultat" class="resultat" aria-live="polite"></div>
+
+        <footer>
+            <p><strong>Vejledende.</strong> Valg af præparat og behandlingsvarighed følger indikation og gældende antibiotikavejledning. Beregningen erstatter ikke klinisk vurdering.</p>
+            <p>Grundlag (døgndosis): penicillin V 50 mg/kg ÷ 3; amoxicillin 50 mg/kg ÷ 3 (højst 3000 mg/døgn); amoxicillin + clavulansyre 50/12,5 mg/kg ÷ 3 (børn &gt; 1 måned og &lt; 40 kg); clarithromycin 15 mg/kg ÷ 2; trimethoprim 6 mg/kg ÷ 2. Tabellen dækker 5–30 kg.</p>
+            <p>Kilder: <a href="https://www.sundhed.dk/content/cms/93/134793_tabel_brnedoseringer_info-til-lger-i-alm-praksis-om-infektioner_2025_2.pdf" target="_blank" rel="noopener">Børnedoseringer ved flydende lægemidler (sundhed.dk, 2025)</a> · <a href="https://www.sundhed.dk/content/cms/21/103521_20251125-antibiotikavejledning-for-primrsektoren.pdf" target="_blank" rel="noopener">Antibiotikavejledning for primærsektoren</a></p>
+        </footer>
+    </main>
+
+    <script>
+        const resultat = document.getElementById('resultat');
+
+        // mgPrKg = døgndosis, styrke = mg/ml, doser = antal pr. døgn
+        const MIDLER = {
+            pcv:      { navn: 'Penicillin V', mgPrKg: 50, styrke: 50, doser: 3 },
+            amox:     { navn: 'Amoxicillin', mgPrKg: 50, styrke: 50, doser: 3, maks: 3000 },
+            amoxclav: { navn: 'Amoxicillin + clavulansyre', mgPrKg: 50, styrke: 50, doser: 3, maksKg: 40,
+                        note: 'Kun børn over 1 måned. Dosis angivet som amoxicillin (+ 12,5 mg/kg/døgn clavulansyre).' },
+            clari:    { navn: 'Clarithromycin', mgPrKg: 15, doser: 2 },
+            trim:     { navn: 'Trimethoprim', mgPrKg: 6, styrke: 10, doser: 2 },
+        };
+
+        function beregn() {
+            const m = MIDLER[document.getElementById('middel').value];
+            const kg = læsTal('vaegt');
+            if (isNaN(kg)) { resultat.innerHTML = ''; return; }
+            if (kg <= 0 || kg > 150) return visBesked(resultat, 'Indtast en gyldig vægt i kg.');
+            if (kg < 5) return visBesked(resultat, 'Under 5 kg: dosering ikke dækket af tabellen – kontakt pædiater.');
+            if (kg >= (m.maksKg || 40)) return visBesked(resultat, 'Barnet vejer ' + tal(kg, 1) + ' kg – brug voksendosering (tabletter) jf. antibiotikavejledningen.');
+
+            let døgn = m.mgPrKg * kg;
+            let loft = '';
+            if (m.maks && døgn > m.maks) { døgn = m.maks; loft = ' (loft nået)'; }
+            const dosis = døgn / m.doser;
+
+            // Clarithromycin: 25 mg/ml op til 12 kg, ellers 50 mg/ml (10–12 kg: begge kan bruges)
+            const styrker = m.styrke ? [m.styrke] : (kg < 10 ? [25] : kg <= 12 ? [25, 50] : [50]);
+            const mlRækker = styrker.map(s => [
+                'Mikstur ' + s + ' mg/ml',
+                tal(dosis / s, 1) + ' ml × ' + m.doser + ' dagligt (' + tal(døgn / s, 1) + ' ml/døgn)'
+            ]);
+
+            const rækker = [
+                ['Døgndosis', tal(døgn) + ' mg' + loft + ' (' + m.mgPrKg + ' mg/kg)'],
+                ['Enkeltdosis', tal(dosis) + ' mg × ' + m.doser + ' dagligt'],
+                ...mlRækker,
+            ];
+            if (kg > 30) rækker.push(['Bemærk', 'Over 30 kg ligger uden for den officielle tabel – beregnet efter samme mg/kg.']);
+            if (m.note) rækker.push(['Bemærk', m.note]);
+            visTabel(resultat, rækker);
+        }
+        bindAlle(beregn);
+    </script>
+</body>
+</html>

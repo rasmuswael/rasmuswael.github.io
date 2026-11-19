@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SCORE2-beregner</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="menu.js" defer></script>
+    <script src="beregn.js"></script>
+</head>
+<body class="beregner">
+    <main>
+        <h1>SCORE2 / SCORE2-OP</h1>
+        <p class="undertitel">10-års risiko for fatal og non-fatal hjerte-kar-sygdom. Lavrisikoregion (Danmark), personer uden kendt hjerte-kar-sygdom eller diabetes.</p>
+
+        <div class="felt">
+            <label for="alder">Alder (40–89 år)</label>
+            <input id="alder" type="number" inputmode="numeric" min="40" max="89" step="1" placeholder="F.eks. 58" autofocus>
+        </div>
+        <div class="felt">
+            <span class="etiket">Køn</span>
+            <div class="valg">
+                <label class="afkryds"><input type="radio" name="koen" value="k" checked> Kvinde</label>
+                <label class="afkryds"><input type="radio" name="koen" value="m"> Mand</label>
+            </div>
+        </div>
+        <label class="afkryds"><input id="ryger" type="checkbox"> Aktuel ryger</label>
+        <div class="felt">
+            <label for="sbt">Systolisk blodtryk (mmHg)</label>
+            <input id="sbt" type="number" inputmode="numeric" min="80" max="250" step="1" placeholder="F.eks. 140">
+        </div>
+        <div class="felt">
+            <label for="tchol">Total-kolesterol (mmol/L)</label>
+            <input id="tchol" type="number" inputmode="decimal" min="1" max="20" step="0.1" placeholder="F.eks. 5,6">
+        </div>
+        <div class="felt">
+            <label for="hdl">HDL-kolesterol (mmol/L)</label>
+            <input id="hdl" type="number" inputmode="decimal" min="0.1" max="5" step="0.1" placeholder="F.eks. 1,3">
+        </div>
+
+        <div id="resultat" class="resultat" aria-live="polite"></div>
+
+        <footer>
+            <p><strong>Vejledende.</strong> Bruges til tilsyneladende raske personer. Ved kendt aterosklerotisk sygdom, diabetes (brug SCORE2-Diabetes), kronisk nyresygdom eller familiær hyperkolesterolæmi er risikoen allerede høj/meget høj. Kontrollér gerne mod ESC's risikoskemaer.</p>
+            <p>Risikokategorier (ESC 2021): under 50 år: &lt; 2,5 % lav-moderat, 2,5–7,5 % høj, ≥ 7,5 % meget høj · 50–69 år: &lt; 5 %, 5–10 %, ≥ 10 % · 70 år og derover: &lt; 7,5 %, 7,5–15 %, ≥ 15 %.</p>
+            <p>Kilder: <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8248998/" target="_blank" rel="noopener">SCORE2 working group, Eur Heart J 2021</a> · SCORE2-OP working group, Eur Heart J 2021 · ESC 2021 Guidelines on CVD prevention</p>
+        </footer>
+    </main>
+
+    <script>
+        const resultat = document.getElementById('resultat');
+
+        // Koefficienter fra SCORE2 (40–69 år) og SCORE2-OP (≥ 70 år), samt rekalibrering for lavrisikoregion.
+        const SCORE2 = {
+            m: { alder: 0.3742, ryg: 0.6012, sbt: 0.2777, tchol: 0.1458, hdl: -0.2698,
+                 rygA: -0.0755, sbtA: -0.0255, tcholA: -0.0281, hdlA: 0.0426, s0: 0.9605, k1: -0.5699, k2: 0.7476 },
+            k: { alder: 0.4648, ryg: 0.7744, sbt: 0.3131, tchol: 0.1002, hdl: -0.2606,
+                 rygA: -0.1088, sbtA: -0.0277, tcholA: -0.0226, hdlA: 0.0613, s0: 0.9776, k1: -0.7380, k2: 0.7019 },
+        };
+        const SCORE2OP = {
+            m: { alder: 0.0634, ryg: 0.3524, sbt: 0.0094, tchol: 0.0850, hdl: -0.3564,
+                 rygA: -0.0247, sbtA: -0.0005, tcholA: 0.0073, hdlA: 0.0091, s0: 0.7576, mean: 0.0929, k1: -0.34, k2: 1.19 },
+            k: { alder: 0.0789, ryg: 0.4921, sbt: 0.0102, tchol: 0.0605, hdl: -0.3040,
+                 rygA: -0.0255, sbtA: -0.0004, tcholA: -0.0009, hdlA: 0.0154, s0: 0.8082, mean: 0.2290, k1: -0.52, k2: 1.01 },
+        };
+
+        function lineær(c, a, ryg, s, t, h) {
+            return c.alder * a + c.ryg * ryg + c.sbt * s + c.tchol * t + c.hdl * h
+                 + c.rygA * a * ryg + c.sbtA * a * s + c.tcholA * a * t + c.hdlA * a * h;
+        }
+        function kalibrér(c, risiko) {
+            return 1 - Math.exp(-Math.exp(c.k1 + c.k2 * Math.log(-Math.log(1 - risiko))));
+        }
+
+        function score2(alder, mand, ryger, sbt, tchol, hdl) {
+            const køn = mand ? 'm' : 'k';
+            const ryg = ryger ? 1 : 0;
+            if (alder < 70) {
+                const c = SCORE2[køn];
+                const lp = lineær(c, (alder - 60) / 5, ryg, (sbt - 120) / 20, tchol - 6, (hdl - 1.3) / 0.5);
+                return { model: 'SCORE2', risiko: kalibrér(c, 1 - Math.pow(c.s0, Math.exp(lp))) };
+            }
+            const c = SCORE2OP[køn];
+            const lp = lineær(c, alder - 73, ryg, sbt - 150, tchol - 6, hdl - 1.4);
+            return { model: 'SCORE2-OP', risiko: kalibrér(c, 1 - Math.pow(c.s0, Math.exp(lp - c.mean))) };
+        }
+
+        function kategori(alder, pct) {
+            const [lav, høj] = alder < 50 ? [2.5, 7.5] : alder < 70 ? [5, 10] : [7.5, 15];
+            if (pct < lav) return 'Lav til moderat risiko – behandling af risikofaktorer generelt ikke anbefalet';
+            if (pct < høj) return 'Høj risiko – behandling af risikofaktorer bør overvejes';
+            return 'Meget høj risiko – behandling af risikofaktorer anbefales';
+        }
+
+        function beregn() {
+            const alder = læsTal('alder'), sbt = læsTal('sbt'), tchol = læsTal('tchol'), hdl = læsTal('hdl');
+            if ([alder, sbt, tchol, hdl].some(isNaN)) { resultat.innerHTML = ''; return; }
+            if (alder < 40 || alder > 89) return visBesked(resultat, 'SCORE2 gælder for 40–69 år og SCORE2-OP for 70–89 år.');
+            if (sbt < 80 || sbt > 250 || tchol <= 0 || tchol > 20 || hdl <= 0 || hdl > 5 || hdl >= tchol) {
+                return visBesked(resultat, 'Kontrollér værdierne for blodtryk og kolesterol.');
+            }
+            const mand = document.querySelector('input[name="koen"]:checked').value === 'm';
+            const r = score2(alder, mand, document.getElementById('ryger').checked, sbt, tchol, hdl);
+            const pct = r.risiko * 100;
+            resultat.innerHTML = '<p class="stortal">' + tal(pct, 1, 'rund') + ' %</p>';
+            const t = document.createElement('div');
+            visTabel(t, [
+                ['Model', r.model + ' (lavrisikoregion)'],
+                ['Non-HDL-kolesterol', tal(tchol - hdl, 1, 'rund') + ' mmol/L'],
+                ['Kategori', kategori(alder, pct)],
+            ]);
+            resultat.appendChild(t);
+        }
+        bindAlle(beregn);
+    </script>
+</body>
+</html>
