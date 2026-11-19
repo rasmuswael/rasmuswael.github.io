@@ -42,9 +42,13 @@ body {
     position: absolute;
     left: 0;
     margin-top: 6px;
-    min-width: 240px;
+    min-width: min(290px, calc(100vw - 32px));
     max-height: calc(100vh - 90px);
+    max-height: calc(100dvh - 90px);   /* iOS: den faktisk synlige højde, uden Safaris værktøjslinjer */
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    padding-bottom: env(safe-area-inset-bottom);
     background: var(--baggrunds-farve);
     border: 2px solid var(--tekst-farve);
     border-radius: 6px;
@@ -58,7 +62,7 @@ body {
 }
 .menu nav a {
     display: block;
-    padding: 10px 16px;
+    padding: 9px 16px;
     color: var(--tekst-farve);
     text-decoration: none;
 }
