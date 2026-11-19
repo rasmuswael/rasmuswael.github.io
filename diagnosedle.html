@@ -43,13 +43,6 @@
         .bonus-valg button.rigtigt { background: var(--grøn); border-color: var(--grøn); color: #fff; opacity: 1; }
         .bonus-valg button.forkert { background: var(--rød); border-color: var(--rød); color: #fff; opacity: 1; }
         .bonus-forklaring { margin: 12px 0 0; line-height: 1.45; }
-        .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-        .chips button {
-            font: inherit; font-size: 0.9rem; cursor: pointer; padding: 8px 12px; border-radius: 999px;
-            border: 2px solid var(--tekst-farve); background: transparent; color: var(--tekst-farve); touch-action: manipulation;
-        }
-        .chips button.valgt { background: var(--tekst-farve); color: var(--baggrunds-farve); }
-        .chips button small { color: inherit; opacity: 0.7; }
     </style>
 </head>
 <body class="beregner">
@@ -81,7 +74,7 @@
             <summary>Sådan spiller du</summary>
             <p>Du ser første ledetråd om dagens patient. Gæt diagnosen – hvert forkert gæt (eller “Vis næste ledetråd”) afslører en ny. Du har 6 ledetråde i alt; jo færre du bruger, jo bedre.</p>
             <p>Når patienten er afsluttet, kommer bonusspørgsmålet <strong>“Hvad gør du nu?”</strong> – svar rigtigt og få en ⭐ i dit resultat.</p>
-            <p>Der kommer en ny patient hver dag ved midnat. Med “Øv dig” kan du spille flere og vælge en kategori, fx Børn, Akut eller Psykiatri.</p>
+            <p>Der kommer en ny patient hver dag ved midnat. Med “Øv dig” kan du spille flere.</p>
             <p>Tilfældene er forenklede lærebogseksempler – til sjov og læring, ikke en klinisk opslagskilde.</p>
         </details>
     </main>
@@ -92,7 +85,6 @@
         const iDag = datoNøgle();
         const DX = DIAGNOSER.map(([navn, ...aliaser]) => ({ navn, aliaser }));
         let spil;   // { tilstand, tilfælde, gæt: [navne eller null for 'spring over'], slut, bonus: null | valgt indeks i næste.valg }
-        let vælgerKategori = false;
 
         // Fast, men blandet rækkefølge af bonusvalgene for hvert tilfælde (samme for alle spillere)
         function frøFor(tekst) { let h = 7; for (const c of tekst) h = (h * 31 + c.codePointAt(0)) >>> 0; return h; }
@@ -114,9 +106,7 @@
             }
         }
         function nytØvespil() {
-            const kat = lager('diagnosedle-kategori');
-            const kandidater = kat ? TILFÆLDE.filter(t => t.kategorier.includes(kat)) : TILFÆLDE;
-            spil = { tilstand: 'øv', kategori: kat, tilfælde: tilfældigtAndet(kandidater, spil && spil.tilfælde), gæt: [], slut: null, bonus: null };
+            spil = { tilstand: 'øv', tilfælde: tilfældigtAndet(TILFÆLDE, spil && spil.tilfælde), gæt: [], slut: null, bonus: null };
         }
 
         function registrér(navn, gemNu = true) {
@@ -167,14 +157,6 @@
             return html + '</div>';
         }
 
-        function kategoriHTML() {
-            const valgt = lager('diagnosedle-kategori');
-            const knap = (k, n) => '<button type="button" data-kategori="' + (k || '') + '" class="' + ((k || null) === (valgt || null) ? 'valgt' : '') + '">' +
-                (k || 'Alle') + ' <small>' + n + '</small></button>';
-            return '<div class="bonus"><h3>Vælg kategori</h3><div class="chips" id="chips">' + knap(null, TILFÆLDE.length) +
-                KATEGORIER.map(k => knap(k, TILFÆLDE.filter(t => t.kategorier.includes(k)).length)).join('') + '</div></div>';
-        }
-
         function bonusStatistik() {
             const st = lager('diagnosedle-bonus');
             if (!st || !st.besvaret) return '';
@@ -183,7 +165,7 @@
 
         function vis() {
             const t = spil.tilfælde;
-            $('tilstand').textContent = spil.tilstand === 'dag' ? 'Dagens: ' + iDag : 'Øverunde' + (spil.kategori ? ' · ' + spil.kategori : '');
+            $('tilstand').textContent = spil.tilstand === 'dag' ? 'Dagens: ' + iDag : 'Øverunde';
             const n = spil.slut ? MAKS : vist();
             $('journal').innerHTML = t.ledetråde.map((l, i) =>
                 i < n ? '<li>' + l + '</li>' : '<li class="skjult">Skjult ledetråd</li>'
@@ -204,30 +186,15 @@
                 (spil.bonus === null ? '' :
                     '<div class="knapper"><button class="knap" id="del">Del resultat</button>' +
                     '<button class="knap sekundær" id="øv">' + (spil.tilstand === 'dag' ? 'Øv dig med en ny' : 'Ny patient') + '</button>' +
-                    (spil.tilstand === 'øv' ? '<button class="knap sekundær" id="kategori">Skift kategori</button><button class="knap sekundær" id="tilbage">Tilbage til dagens</button>' : '') + '</div>' +
-                    (vælgerKategori ? kategoriHTML() : '') +
+                    (spil.tilstand === 'øv' ? '<button class="knap sekundær" id="tilbage">Tilbage til dagens</button>' : '') + '</div>' +
                     (spil.tilstand === 'dag' ? statistikHTML('diagnosedle') + bonusStatistik() : '')) +
                 '</div>';
 
             $('bonus-valg').onclick = e => { const b = e.target.closest('[data-bonus]'); if (b) svarBonus(Number(b.dataset.bonus)); };
             if (spil.bonus === null) return;
             delKnap($('del'), delTekst);
-            // "Øv dig" fra dagens spil viser først kategorivalget; i øvetilstand starter den en ny patient i samme kategori
-            $('øv').onclick = () => {
-                if (spil.tilstand === 'dag') { vælgerKategori = !vælgerKategori; vis(); }
-                else { nytØvespil(); vælgerKategori = false; vis(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
-            };
-            if ($('kategori')) $('kategori').onclick = () => { vælgerKategori = !vælgerKategori; vis(); };
-            if ($('tilbage')) $('tilbage').onclick = () => { vælgerKategori = false; nytDagsspil(); vis(); };
-            if ($('chips')) $('chips').onclick = e => {
-                const b = e.target.closest('[data-kategori]');
-                if (!b) return;
-                lager('diagnosedle-kategori', b.dataset.kategori || null);
-                vælgerKategori = false;
-                nytØvespil();
-                vis();
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            };
+            $('øv').onclick = () => { nytØvespil(); vis(); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+            if ($('tilbage')) $('tilbage').onclick = () => { nytDagsspil(); vis(); };
         }
 
         lavForslag({
