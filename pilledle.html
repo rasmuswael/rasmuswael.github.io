@@ -16,7 +16,8 @@
         .spil-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
         .tilstand { color: var(--dæmpet); font-size: 0.95rem; }
 
-        .gæt-form { display: flex; gap: 8px; margin: 20px 0 8px; }
+        .søg { position: relative; margin: 20px 0 8px; scroll-margin-top: 12px; }
+        .gæt-form { display: flex; gap: 8px; }
         .gæt-form input {
             flex: 1; min-width: 0;
             font-size: 1.15rem; padding: 10px 12px;
@@ -31,6 +32,27 @@
         }
         .knap.sekundær { background: transparent; color: var(--tekst-farve); }
         .knap:disabled { opacity: 0.4; cursor: default; }
+        .forslag {
+            position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 5;
+            margin: 0; padding: 0; list-style: none;
+            max-height: min(50vh, 320px); overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+            background: var(--baggrunds-farve); border: 2px solid var(--tekst-farve); border-radius: 6px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+        .forslag[hidden] { display: none; }
+        .forslag li {
+            min-height: 44px; box-sizing: border-box; padding: 8px 12px; cursor: pointer;
+            display: flex; flex-direction: column; justify-content: center;
+            border-bottom: 1px solid var(--linje);
+        }
+        .forslag li:last-child { border-bottom: none; }
+        .forslag li b { font-size: 1rem; }
+        .forslag li small { color: var(--dæmpet); font-size: 0.8rem; margin-top: 2px; }
+        .forslag li.aktiv, .forslag li:hover { background: var(--tekst-farve); color: var(--baggrunds-farve); }
+        .forslag li.aktiv small, .forslag li:hover small { color: #555; }
+        .forslag li.gættet { opacity: 0.35; cursor: default; text-decoration: line-through; }
+        .forslag li.gættet:hover { background: none; color: inherit; }
+        .forslag .tom { color: var(--dæmpet); cursor: default; }
         .fejl { color: var(--advarsel); min-height: 1.4em; margin: 0 0 8px; font-size: 0.95rem; }
 
         .ledetråde { margin: 8px 0 20px; padding: 12px 14px; border: 1px dashed var(--linje); border-radius: 6px; color: var(--dæmpet); font-size: 0.95rem; }
@@ -47,7 +69,7 @@
         .atc-match .bjælke i { width: 10px; height: 10px; border-radius: 2px; background: var(--grå); }
         .atc-match .bjælke i.på { background: var(--grøn); }
 
-        .felter { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+        .felter { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
         .felt-boks {
             border-radius: 6px; padding: 8px; min-height: 58px;
             background: var(--grå); color: #fff;
@@ -85,11 +107,15 @@
         </div>
         <p class="undertitel">Gæt dagens lægemiddel på 6 forsøg. Hvert gæt giver ledetråde om ATC-gruppe, virkning, brug og form.</p>
 
-        <form class="gæt-form" id="gæt-form" autocomplete="off">
-            <input id="gæt-input" list="præparat-liste" placeholder="Skriv et lægemiddel, fx Panodil" aria-label="Dit gæt">
-            <button class="knap" type="submit" id="gæt-knap">Gæt</button>
-        </form>
-        <datalist id="præparat-liste"></datalist>
+        <div class="søg" id="søg">
+            <form class="gæt-form" id="gæt-form" autocomplete="off">
+                <input id="gæt-input" placeholder="Skriv et lægemiddel, fx Panodil" aria-label="Dit gæt"
+                       autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                       role="combobox" aria-autocomplete="list" aria-controls="forslag" aria-expanded="false">
+                <button class="knap" type="submit" id="gæt-knap">Gæt</button>
+            </form>
+            <ul class="forslag" id="forslag" role="listbox" hidden></ul>
+        </div>
         <p class="fejl" id="fejl" aria-live="polite"></p>
 
         <div class="ledetråde" id="ledetråde"></div>
@@ -310,22 +336,92 @@
         }
 
         // ---------- Input ----------
-        $('præparat-liste').innerHTML = PRÆPARATER.flatMap(p =>
-            [p.navn, ...p.mærker.filter(m => norm(m) !== norm(p.navn)).map(m => m + ' (' + p.navn + ')')]
-        ).sort((a, b) => a.localeCompare(b, 'da')).map(n => '<option value="' + n + '">').join('');
+        // Forslag sorteret efter hvor godt de matcher, hver gruppe alfabetisk. Tom tekst = alle.
+        function filtrér(tekst) {
+            const t = norm(tekst);
+            const alfabetisk = (a, b) => a.navn.localeCompare(b.navn, 'da');
+            if (!t) return PRÆPARATER.slice().sort(alfabetisk);
+            // 0: generisk navn starter med teksten, 1: handelsnavn starter med, 2: indeholder
+            const grupper = [[], [], []];
+            for (const p of PRÆPARATER) {
+                const mærker = p.mærker.map(norm);
+                if (norm(p.navn).startsWith(t)) grupper[0].push(p);
+                else if (mærker.some(n => n.startsWith(t))) grupper[1].push(p);
+                else if ([norm(p.navn), ...mærker].some(n => n.includes(t))) grupper[2].push(p);
+            }
+            return grupper.flatMap(g => g.sort(alfabetisk));
+        }
 
-        $('gæt-form').addEventListener('submit', e => {
-            e.preventDefault();
+        const felt = $('gæt-input'), liste = $('forslag');
+        let synlige = [], aktiv = -1;
+
+        function visForslag() {
+            if (spil.slut) return lukForslag();
+            synlige = filtrér(felt.value);
+            aktiv = -1;
+            liste.innerHTML = synlige.length
+                ? synlige.map((p, i) => {
+                    const mærker = p.mærker.filter(m => norm(m) !== norm(p.navn));
+                    const gættet = spil.gæt.includes(p.navn);
+                    return '<li id="forslag-' + i + '" role="option" data-i="' + i + '"' + (gættet ? ' class="gættet" aria-disabled="true"' : '') + '>' +
+                        '<b>' + p.navn + '</b>' + (mærker.length ? '<small>' + mærker.join(' · ') + '</small>' : '') + '</li>';
+                }).join('')
+                : '<li class="tom">Ingen lægemidler matcher</li>';
+            liste.hidden = false;
+            liste.scrollTop = 0;
+            felt.setAttribute('aria-expanded', 'true');
+            felt.removeAttribute('aria-activedescendant');
+        }
+        function lukForslag() {
+            liste.hidden = true;
+            aktiv = -1;
+            felt.setAttribute('aria-expanded', 'false');
+            felt.removeAttribute('aria-activedescendant');
+        }
+        function markér(i) {
+            const rækker = liste.querySelectorAll('li[role="option"]');
+            if (!rækker.length) return;
+            aktiv = (i + rækker.length) % rækker.length;
+            rækker.forEach((r, j) => r.classList.toggle('aktiv', j === aktiv));
+            rækker[aktiv].scrollIntoView({ block: 'nearest' });
+            felt.setAttribute('aria-activedescendant', rækker[aktiv].id);
+        }
+
+        function gæt(p) {
             if (spil.slut) return;
-            const felt = $('gæt-input');
-            if (!felt.value.trim()) return;
-            const p = find(felt.value);
             if (!p) { $('fejl').textContent = 'Kender ikke “' + felt.value.trim() + '” – vælg fra listen.'; return; }
             if (spil.gæt.includes(p.navn)) { $('fejl').textContent = 'Du har allerede gættet ' + p.navn + '.'; return; }
             registrér(p);
             felt.value = '';
+            lukForslag();
+            felt.blur();          // skjul tastaturet på mobil, så ledetrådene kan ses
             vis();
-            if (!spil.slut) felt.focus();
+        }
+
+        felt.addEventListener('focus', () => {
+            visForslag();
+            setTimeout(() => $('søg').scrollIntoView({ block: 'start', behavior: 'smooth' }), 300);
+        });
+        felt.addEventListener('input', () => { $('fejl').textContent = ''; visForslag(); });
+        felt.addEventListener('blur', () => setTimeout(lukForslag, 150));
+        felt.addEventListener('keydown', e => {
+            if (e.key === 'ArrowDown') { e.preventDefault(); if (liste.hidden) visForslag(); markér(aktiv + 1); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); markér(aktiv - 1); }
+            else if (e.key === 'Escape') lukForslag();
+        });
+        // pointerdown + preventDefault: feltet mister ikke fokus før valget registreres
+        liste.addEventListener('pointerdown', e => e.preventDefault());
+        liste.addEventListener('click', e => {
+            const li = e.target.closest('li[role="option"]');
+            if (!li || li.classList.contains('gættet')) return;
+            gæt(synlige[Number(li.dataset.i)]);
+        });
+
+        $('gæt-form').addEventListener('submit', e => {
+            e.preventDefault();
+            if (!liste.hidden && aktiv >= 0) return gæt(synlige[aktiv]);
+            if (!felt.value.trim()) return;
+            gæt(find(felt.value));
         });
 
         nytDagsspil();
