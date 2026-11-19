@@ -43,15 +43,27 @@
         .bonus-valg button.rigtigt { background: var(--grøn); border-color: var(--grøn); color: #fff; opacity: 1; }
         .bonus-valg button.forkert { background: var(--rød); border-color: var(--rød); color: #fff; opacity: 1; }
         .bonus-forklaring { margin: 12px 0 0; line-height: 1.45; }
+        .niveau { display: inline-flex; border: 2px solid var(--tekst-farve); border-radius: 999px; overflow: hidden; margin: 0 0 16px; }
+        .niveau button {
+            font: inherit; font-weight: bold; font-size: 0.95rem; cursor: pointer; padding: 6px 16px;
+            border: none; background: transparent; color: var(--tekst-farve); touch-action: manipulation;
+        }
+        .niveau button[aria-pressed="true"] { background: var(--tekst-farve); color: var(--baggrunds-farve); }
+        .niveau button.svær[aria-pressed="true"] { background: var(--rød); color: #fff; }
+        .svær-mærke { display: inline-block; vertical-align: middle; margin-left: 8px; padding: 2px 10px; border-radius: 999px; background: var(--rød); color: #fff; font-size: 0.9rem; letter-spacing: 0.04em; }
     </style>
 </head>
 <body class="beregner">
     <main>
         <div class="spil-top">
-            <h1>Diagnosedle</h1>
+            <h1>Diagnosedle<span class="svær-mærke" id="svær-mærke" hidden>SVÆR</span></h1>
             <span class="tilstand" id="tilstand"></span>
         </div>
         <p class="undertitel">Dagens patient. Stil diagnosen med så få ledetråde som muligt – hvert forkert gæt afslører en ny.</p>
+        <div class="niveau" role="group" aria-label="Sværhedsgrad">
+            <button type="button" id="niveau-normal" data-niveau="normal">Normal</button>
+            <button type="button" id="niveau-svær" class="svær" data-niveau="svær">Svær</button>
+        </div>
 
         <ol class="journal" id="journal"></ol>
         <div class="forkerte" id="forkerte"></div>
@@ -74,6 +86,7 @@
             <summary>Sådan spiller du</summary>
             <p>Du ser første ledetråd om dagens patient. Gæt diagnosen – hvert forkert gæt (eller “Vis næste ledetråd”) afslører en ny. Du har 6 ledetråde i alt; jo færre du bruger, jo bedre.</p>
             <p>Når patienten er afsluttet, kommer bonusspørgsmålet <strong>“Hvad gør du nu?”</strong> – svar rigtigt og få en ⭐ i dit resultat.</p>
+            <p><strong>Svær</strong> har sin egen daglige patient med sjældnere sygdomme og atypiske præsentationer af almindelige sygdomme – de afslørende fund kommer sent. Normal og Svær har hver deres statistik.</p>
             <p>Der kommer en ny patient hver dag ved midnat. Med “Øv dig” kan du spille flere.</p>
             <p>Tilfældene er forenklede lærebogseksempler – til sjov og læring, ikke en klinisk opslagskilde.</p>
         </details>
@@ -83,6 +96,11 @@
         const MAKS = 6;
         const $ = id => document.getElementById(id);
         const iDag = datoNøgle();
+        let niveau = lager('diagnosedle-niveau') === 'svær' ? 'svær' : 'normal';
+        // Normal og Svær har hver deres daglige patient, gemte spil og statistik
+        const spilnavn = () => niveau === 'svær' ? 'diagnosedle-svær' : 'diagnosedle';
+        const pulje = () => niveau === 'svær' ? SVÆRE_TILFÆLDE : TILFÆLDE;
+        const frø = () => niveau === 'svær' ? 4711 : 1729;
         const DX = DIAGNOSER.map(([navn, ...aliaser]) => ({ navn, aliaser }));
         let spil;   // { tilstand, tilfælde, gæt: [navne eller null for 'spring over'], slut, bonus: null | valgt indeks i næste.valg }
 
@@ -93,12 +111,12 @@
         function vist() { return Math.min(spil.gæt.length + 1, MAKS); }
 
         function gem() {
-            if (spil.tilstand === 'dag') lager('diagnosedle-' + iDag, { svar: spil.tilfælde.svar, gæt: spil.gæt, bonus: spil.bonus });
+            if (spil.tilstand === 'dag') lager(spilnavn() + '-' + iDag, { svar: spil.tilfælde.svar, gæt: spil.gæt, bonus: spil.bonus });
         }
 
         function nytDagsspil() {
-            spil = { tilstand: 'dag', tilfælde: dagensElement(TILFÆLDE, 1729, iDag), gæt: [], slut: null, bonus: null };
-            const gemt = lager('diagnosedle-' + iDag);
+            spil = { tilstand: 'dag', tilfælde: dagensElement(pulje(), frø(), iDag), gæt: [], slut: null, bonus: null };
+            const gemt = lager(spilnavn() + '-' + iDag);
             // Kun gendan, hvis det gemte spil hører til dagens patient (ældre format uden svar ignoreres)
             if (gemt && !Array.isArray(gemt) && gemt.svar === spil.tilfælde.svar) {
                 for (const g of gemt.gæt || []) registrér(g, false);
@@ -106,7 +124,7 @@
             }
         }
         function nytØvespil() {
-            spil = { tilstand: 'øv', tilfælde: tilfældigtAndet(TILFÆLDE, spil && spil.tilfælde), gæt: [], slut: null, bonus: null };
+            spil = { tilstand: 'øv', tilfælde: tilfældigtAndet(pulje(), spil && spil.tilfælde), gæt: [], slut: null, bonus: null };
         }
 
         function registrér(navn, gemNu = true) {
@@ -115,7 +133,7 @@
             else if (spil.gæt.length >= MAKS) spil.slut = 'tabt';
             if (gemNu && spil.tilstand === 'dag') {
                 gem();
-                if (spil.slut) registrérResultat('diagnosedle', iDag, spil.slut === 'vundet', spil.gæt.length);
+                if (spil.slut) registrérResultat(spilnavn(), iDag, spil.slut === 'vundet', spil.gæt.length);
             }
         }
 
@@ -124,12 +142,12 @@
             spil.bonus = i;
             if (spil.tilstand === 'dag') {
                 gem();
-                const st = lager('diagnosedle-bonus') || { besvaret: 0, rigtige: 0, sidste: null };
+                const st = lager(spilnavn() + '-bonus') || { besvaret: 0, rigtige: 0, sidste: null };
                 if (st.sidste !== iDag) {
                     st.besvaret++;
                     if (i === 0) st.rigtige++;
                     st.sidste = iDag;
-                    lager('diagnosedle-bonus', st);
+                    lager(spilnavn() + '-bonus', st);
                 }
             }
             vis();
@@ -139,7 +157,7 @@
             const felter = spil.gæt.map(g => g === spil.tilfælde.svar ? '🟩' : g === null ? '⬜' : '🟥');
             while (felter.length < MAKS) felter.push('⬛');
             const bonus = spil.bonus === null ? '' : spil.bonus === 0 ? ' ⭐' : ' ✖';
-            return 'Diagnosedle ' + (spil.tilstand === 'dag' ? iDag : '(øverunde)') + ' ' +
+            return 'Diagnosedle ' + (niveau === 'svær' ? 'Svær ' : '') + (spil.tilstand === 'dag' ? iDag : '(øverunde)') + ' ' +
                 (spil.slut === 'vundet' ? spil.gæt.length : 'X') + '/' + MAKS + bonus + '\n' + felter.join('');
         }
 
@@ -158,7 +176,7 @@
         }
 
         function bonusStatistik() {
-            const st = lager('diagnosedle-bonus');
+            const st = lager(spilnavn() + '-bonus');
             if (!st || !st.besvaret) return '';
             return '<p style="text-align:center;color:var(--dæmpet);margin:10px 0 0">⭐ Bonus rigtige: ' + Math.round(100 * st.rigtige / st.besvaret) + ' % (' + st.rigtige + ' af ' + st.besvaret + ')</p>';
         }
@@ -166,6 +184,9 @@
         function vis() {
             const t = spil.tilfælde;
             $('tilstand').textContent = spil.tilstand === 'dag' ? 'Dagens: ' + iDag : 'Øverunde';
+            $('svær-mærke').hidden = niveau !== 'svær';
+            $('niveau-normal').setAttribute('aria-pressed', niveau === 'normal');
+            $('niveau-svær').setAttribute('aria-pressed', niveau === 'svær');
             const n = spil.slut ? MAKS : vist();
             $('journal').innerHTML = t.ledetråde.map((l, i) =>
                 i < n ? '<li>' + l + '</li>' : '<li class="skjult">Skjult ledetråd</li>'
@@ -187,7 +208,7 @@
                     '<div class="knapper"><button class="knap" id="del">Del resultat</button>' +
                     '<button class="knap sekundær" id="øv">' + (spil.tilstand === 'dag' ? 'Øv dig med en ny' : 'Ny patient') + '</button>' +
                     (spil.tilstand === 'øv' ? '<button class="knap sekundær" id="tilbage">Tilbage til dagens</button>' : '') + '</div>' +
-                    (spil.tilstand === 'dag' ? statistikHTML('diagnosedle') + bonusStatistik() : '')) +
+                    (spil.tilstand === 'dag' ? statistikHTML(spilnavn()) + bonusStatistik() : '')) +
                 '</div>';
 
             $('bonus-valg').onclick = e => { const b = e.target.closest('[data-bonus]'); if (b) svarBonus(Number(b.dataset.bonus)); };
@@ -209,6 +230,15 @@
             vælg: d => { registrér(d.navn); vis(); },
         });
         $('spring').onclick = () => { if (!spil.slut) { registrér(null); vis(); } };
+
+        document.querySelector('.niveau').onclick = e => {
+            const b = e.target.closest('[data-niveau]');
+            if (!b || b.dataset.niveau === niveau) return;
+            niveau = b.dataset.niveau;
+            lager('diagnosedle-niveau', niveau);
+            nytDagsspil();
+            vis();
+        };
 
         nytDagsspil();
         vis();
