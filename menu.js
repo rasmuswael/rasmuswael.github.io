@@ -41,6 +41,27 @@
     menu.innerHTML = html;
     document.body.prepend(menu);
 
+    // 🌸 Pink mode-knap i øverste højre hjørne
+    const tema = document.createElement('button');
+    tema.type = 'button';
+    tema.className = 'tema-knap';
+    tema.textContent = '🌸';
+    function visTema() {
+        const pink = document.documentElement.dataset.tema === 'pink';
+        tema.setAttribute('aria-pressed', pink);
+        tema.title = pink ? 'Normal mode' : 'Pink mode';
+        tema.setAttribute('aria-label', tema.title);
+    }
+    tema.onclick = () => {
+        const pink = document.documentElement.dataset.tema !== 'pink';
+        if (pink) document.documentElement.dataset.tema = 'pink';
+        else delete document.documentElement.dataset.tema;
+        try { localStorage.setItem('tema', pink ? 'pink' : 'normal'); } catch (e) {}
+        visTema();
+    };
+    visTema();
+    document.body.prepend(tema);
+
     // Luk menuen ved klik udenfor eller Escape
     document.addEventListener('click', e => { if (!menu.contains(e.target)) menu.open = false; });
     document.addEventListener('keydown', e => { if (e.key === 'Escape') menu.open = false; });

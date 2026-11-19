@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Firkløver</title>
     <link rel="stylesheet" href="style.css">
+    <script src="tema.js"></script>
     <link rel="stylesheet" href="spil.css">
     <script src="menu.js" defer></script>
     <script src="spil.js"></script>
@@ -18,7 +19,7 @@
         .brik {
             font: inherit; font-weight: bold; font-size: 0.74rem; line-height: 1.15;
             min-height: 64px; padding: 4px; border-radius: 8px; border: none; cursor: pointer;
-            background: #4a4a4c; color: #fff; overflow-wrap: anywhere; hyphens: auto;
+            background: var(--grå); color: #fff; overflow-wrap: anywhere; hyphens: auto;
             touch-action: manipulation;
         }
         .brik.valgt { background: var(--tekst-farve); color: var(--baggrunds-farve); }

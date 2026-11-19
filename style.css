@@ -109,3 +109,34 @@ body.beregner {
 
 .beregner footer { margin-top: 36px; font-size: 0.9rem; color: var(--dæmpet); line-height: 1.5; }
 .beregner footer a { color: var(--tekst-farve); }
+
+/* --- PINK MODE (slås til med 🌸-knappen, se menu.js og tema.js) --- */
+:root[data-tema="pink"] {
+    --baggrunds-farve: #ffe3ef;
+    --tekst-farve:     #6b1240;
+    --dæmpet:          #a8507f;
+    --advarsel:        #d81b60;
+    --linje:           #f2b3cf;
+    --grå:             #c98aa6;
+}
+:root[data-tema="pink"] .beregner input[type="number"],
+:root[data-tema="pink"] .beregner input[type="date"],
+:root[data-tema="pink"] .beregner select { color-scheme: light; }
+
+.tema-knap {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 10;
+    width: 44px;
+    height: 40px;
+    padding: 0;
+    font-size: 1.3rem;
+    line-height: 1;
+    cursor: pointer;
+    border: 2px solid var(--tekst-farve);
+    border-radius: 6px;
+    background: var(--baggrunds-farve);
+    touch-action: manipulation;
+}
+.tema-knap[aria-pressed="true"] { background: var(--tekst-farve); }

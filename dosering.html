@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Doseringsdyst</title>
     <link rel="stylesheet" href="style.css">
+    <script src="tema.js"></script>
     <link rel="stylesheet" href="spil.css">
     <script src="menu.js" defer></script>
     <script src="beregn.js"></script>
@@ -23,6 +24,7 @@
         input[type="range"] { width: 100%; margin: 6px 0 12px; accent-color: var(--tekst-farve); }
         .resultat-boks { margin-top: 16px; padding: 14px; border-radius: 8px; background: var(--grå); animation: ind 0.3s ease-out; }
         .resultat-boks.r100 { background: var(--grøn); } .resultat-boks.rdel { background: #6b5e22; } .resultat-boks.r0 { background: #6b2a25; }
+        [data-tema="pink"] .resultat-boks { color: #fff; } [data-tema="pink"] .resultat-boks.rdel { background: var(--gul); } [data-tema="pink"] .resultat-boks.r0 { background: var(--rød); }
         .resultat-boks p { margin: 6px 0; }
         .resultat-boks a { color: #fff; }
         .advarsel { font-weight: bold; color: var(--advarsel); }
